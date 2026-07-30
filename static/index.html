@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure File-Sharing System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="dark-theme">
+    <div id="app" class="app-container">
+        <!-- Navigation Header -->
+        <header class="navbar">
+            <div class="logo-container">
+                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <span class="logo-text">SecureShare <span class="badge">AES-256</span></span>
+            </div>
+            
+            <div class="nav-actions" id="nav-actions">
+                <!-- User Profile / Quick Login Switches will render here -->
+            </div>
+        </header>
+
+        <!-- Main Workspace Container -->
+        <main class="main-content">
+            <!-- Toast Notification Box -->
+            <div id="toast-container" class="toast-container"></div>
+
+            <!-- View 1: Auth Modal View (When not logged in) -->
+            <section id="view-auth" class="view-section active">
+                <div class="auth-card glass-panel">
+                    <div class="auth-tabs">
+                        <button id="tab-login-btn" class="auth-tab-btn active" onclick="switchAuthTab('login')">Sign In</button>
+                        <button id="tab-register-btn" class="auth-tab-btn" onclick="switchAuthTab('register')">Register Account</button>
+                    </div>
+
+                    <!-- Login Form -->
+                    <form id="form-login" class="auth-form active" onsubmit="handleLogin(event)">
+                        <h2>Welcome Back</h2>
+                        <p class="subtitle">Access your end-to-end encrypted file vault</p>
+                        
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-envelope"></i> Email or Username</label>
+                            <input type="text" id="login-email" placeholder="usera@secure.local or username" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-lock"></i> Password</label>
+                            <input type="password" id="login-password" placeholder="••••••••" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fa-solid fa-key"></i> Authenticate & Enter
+                        </button>
+
+                        <div class="demo-quick-login">
+                            <span>Quick Demo Accounts:</span>
+                            <div class="demo-btn-group">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="fillDemo('usera@secure.local', 'UserSecret123!')">Demo User A</button>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="fillDemo('userb@secure.local', 'UserSecret123!')">Demo User B</button>
+                                <button type="button" class="btn btn-sm btn-accent" onclick="fillDemo('admin@secure.local', 'AdminSecret123!')">Demo Admin</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Register Form -->
+                    <form id="form-register" class="auth-form" onsubmit="handleRegister(event)">
+                        <h2>Create Account</h2>
+                        <p class="subtitle">Join the secure zero-trust file sharing platform</p>
+                        
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-user"></i> Full Name</label>
+                            <input type="text" id="reg-name" placeholder="John Doe" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+                            <input type="email" id="reg-email" placeholder="john@example.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-at"></i> Username (Optional)</label>
+                            <input type="text" id="reg-username" placeholder="johndoe">
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-lock"></i> Password</label>
+                            <input type="password" id="reg-password" placeholder="Min 8 chars, 1 Upper, 1 Special" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-shield"></i> Confirm Password</label>
+                            <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-user-shield"></i> Account Role</label>
+                            <select id="reg-role">
+                                <option value="USER">Standard User</option>
+                                <option value="ADMIN">System Admin</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fa-solid fa-user-plus"></i> Register & Encrypt
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- View 2: Dashboard View (Logged In) -->
+            <section id="view-dashboard" class="view-section">
+                <!-- Navigation Tabs -->
+                <div class="dashboard-nav-bar">
+                    <div class="dash-tabs">
+                        <button class="dash-tab-btn active" id="tab-my-files" onclick="switchDashboardTab('files')">
+                            <i class="fa-solid fa-folder-closed"></i> My Files
+                        </button>
+                        <button class="dash-tab-btn" id="tab-shared" onclick="switchDashboardTab('shared')">
+                            <i class="fa-solid fa-share-nodes"></i> Shared With Me
+                        </button>
+                        <button class="dash-tab-btn" id="tab-logs" onclick="switchDashboardTab('logs')">
+                            <i class="fa-solid fa-list-check"></i> Security Audit Logs
+                        </button>
+                        <button class="dash-tab-btn admin-only" id="tab-admin" onclick="switchDashboardTab('admin')" style="display:none;">
+                            <i class="fa-solid fa-chart-line"></i> Admin Security Center
+                        </button>
+                    </div>
+
+                    <div class="user-profile-badge">
+                        <span id="user-display-name">User</span>
+                        <span id="user-display-role" class="role-pill">USER</span>
+                        <button class="btn btn-sm btn-ghost" onclick="handleLogout()">
+                            <i class="fa-solid fa-right-from-bracket"></i> Logout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Content: My Files -->
+                <div id="content-files" class="dash-tab-content active">
+                    <!-- Upload Dropzone -->
+                    <div class="upload-dropzone glass-panel" id="dropzone">
+                        <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                        <h3>Drag & Drop Files Here or <label for="file-input" class="upload-link">Browse Files</label></h3>
+                        <p class="subtext">Files are AES-256 encrypted before landing on disk (Max size 50MB)</p>
+                        <input type="file" id="file-input" onchange="handleFileSelect(event)" style="display:none;">
+                    </div>
+
+                    <!-- Search & Filter Controls -->
+                    <div class="toolbar glass-panel">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="file-search" placeholder="Search filenames..." oninput="debounceSearch()">
+                        </div>
+                        <div class="filter-box">
+                            <select id="file-sort" onchange="loadUserFiles()">
+                                <option value="date_desc">Newest First</option>
+                                <option value="date_asc">Oldest First</option>
+                                <option value="name_asc">Name (A-Z)</option>
+                                <option value="size_desc">Largest Size</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- File List Table -->
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Size</th>
+                                    <th>Type</th>
+                                    <th>Uploaded</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-table-body">
+                                <tr><td colspan="5" class="text-center">Loading files...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Shared With Me -->
+                <div id="content-shared" class="dash-tab-content">
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Shared By</th>
+                                    <th>Permission</th>
+                                    <th>Expires</th>
+                                    <th>Downloads</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shared-table-body">
+                                <tr><td colspan="6" class="text-center">Loading shared files...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Audit Logs -->
+                <div id="content-logs" class="dash-tab-content">
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Resource</th>
+                                    <th>Details</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-table-body">
+                                <tr><td colspan="5" class="text-center">Loading audit events...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Admin Portal -->
+                <div id="content-admin" class="dash-tab-content">
+                    <!-- Metrics Cards -->
+                    <div class="metrics-grid">
+                        <div class="metric-card glass-panel">
+                            <div class="icon-box blue"><i class="fa-solid fa-users"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Total Registered Users</span>
+                                <h3 id="stat-total-users">0</h3>
+                            </div>
+                        </div>
+                        <div class="metric-card glass-panel">
+                            <div class="icon-box green"><i class="fa-solid fa-file-shield"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Active Encrypted Files</span>
+                                <h3 id="stat-total-files">0</h3>
+                            </div>
+                        </div>
+                        <div class="metric-card glass-panel">
+                            <div class="icon-box purple"><i class="fa-solid fa-hard-drive"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Storage Used</span>
+                                <h3 id="stat-storage-used">0 MB</h3>
+                            </div>
+                        </div>
+                        <div class="metric-card glass-panel">
+                            <div class="icon-box red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Security Alerts & Failures</span>
+                                <h3 id="stat-security-events">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Monitoring Feed -->
+                    <div class="admin-details-grid">
+                        <div class="table-container glass-panel">
+                            <h3><i class="fa-solid fa-shield-virus"></i> Security Events & Failed Attempts</h3>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>User / IP</th>
+                                        <th>Event</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-security-table">
+                                    <tr><td colspan="4">Loading security log feed...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Share Modal -->
+        <div id="modal-share" class="modal">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-share-nodes"></i> Share Encrypted File</h3>
+                    <button class="modal-close" onclick="closeModal('modal-share')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="share-file-id">
+                    <p class="file-name-label">File: <strong id="share-file-name">filename.txt</strong></p>
+                    
+                    <div class="form-group">
+                        <label>Recipient Email or Username</label>
+                        <input type="text" id="share-recipient" placeholder="e.g. userb@secure.local or bob" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Permission Level</label>
+                        <select id="share-permission">
+                            <option value="DOWNLOAD">DOWNLOAD (Can view & download file)</option>
+                            <option value="VIEW">VIEW (Can only view metadata)</option>
+                            <option value="EDIT">EDIT (Full access)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label>Expiration (Hours)</label>
+                            <input type="number" id="share-expiry" placeholder="Optional (e.g. 24)" min="1">
+                        </div>
+                        <div class="form-group col">
+                            <label>Max Download Count</label>
+                            <input type="number" id="share-max-downloads" placeholder="Optional (e.g. 3)" min="1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeModal('modal-share')">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitShareForm()"><i class="fa-solid fa-paper-plane"></i> Send Share Access</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Modal -->
+        <div id="modal-rename" class="modal">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-pen"></i> Rename File</h3>
+                    <button class="modal-close" onclick="closeModal('modal-rename')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="rename-file-id">
+                    <div class="form-group">
+                        <label>New File Name</label>
+                        <input type="text" id="rename-input" placeholder="enter new filename.ext" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeModal('modal-rename')">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitRenameForm()">Save Name</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
