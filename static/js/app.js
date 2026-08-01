@@ -144,13 +144,26 @@ function handleLogout() {
     showAuthView();
 }
 
+// Helper: HTML Escaping
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Dashboard Tabs
 function switchDashboardTab(tab) {
     document.querySelectorAll('.dash-tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.dash-tab-content').forEach(content => content.classList.remove('active'));
 
-    document.getElementById(`tab-${tab}`).classList.add('active');
-    document.getElementById(`content-${tab}`).classList.add('active');
+    const tabBtn = document.getElementById(`tab-${tab}`);
+    const contentBox = document.getElementById(`content-${tab}`);
+    if (tabBtn) tabBtn.classList.add('active');
+    if (contentBox) contentBox.classList.add('active');
 
     if (tab === 'files') loadUserFiles();
     if (tab === 'shared') loadSharedFiles();
@@ -160,9 +173,13 @@ function switchDashboardTab(tab) {
 
 // Files Operations
 async function loadUserFiles() {
-    const search = document.getElementById('file-search').value;
-    const sortBy = document.getElementById('file-sort').value;
+    const searchInput = document.getElementById('file-search');
+    const sortSelect = document.getElementById('file-sort');
+    const search = searchInput ? searchInput.value : '';
+    const sortBy = sortSelect ? sortSelect.value : 'date_desc';
     const tbody = document.getElementById('files-table-body');
+    if (!tbody) return;
+
     tbody.innerHTML = `<tr><td colspan="5" class="text-center">Loading encrypted files...</td></tr>`;
 
     try {
@@ -174,30 +191,44 @@ async function loadUserFiles() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
-        if (!res.ok) throw new Error('Failed to load files');
+        if (res.status === 401) {
+            handleLogout();
+            showToast('Session expired. Please log in again.', 'error');
+            return;
+        }
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Failed to load files');
+        }
         const files = await res.json();
 
-        if (files.length === 0) {
+        if (!files || files.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext">No encrypted files uploaded yet. Upload one above!</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = files.map(file => `
-            <tr>
-                <td><strong><i class="fa-solid fa-file-shield text-primary"></i> ${file.original_name}</strong></td>
-                <td>${formatBytes(file.file_size)}</td>
-                <td><span class="badge">${file.mime_type.split('/')[1] || 'binary'}</span></td>
-                <td>${new Date(file.created_at).toLocaleString()}</td>
-                <td>
-                    <div class="demo-btn-group">
-                        <button class="btn btn-sm btn-outline" onclick="downloadFile(${file.id}, '${file.original_name}')"><i class="fa-solid fa-download"></i></button>
-                        <button class="btn btn-sm btn-outline" onclick="openShareModal(${file.id}, '${file.original_name}')"><i class="fa-solid fa-share-nodes"></i></button>
-                        <button class="btn btn-sm btn-outline" onclick="openRenameModal(${file.id}, '${file.original_name}')"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteFile(${file.id})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = files.map(file => {
+            const safeName = escapeHtml(file.original_name || 'Unnamed File');
+            const safeMime = escapeHtml((file.mime_type || '').split('/')[1] || 'binary');
+            const jsEscapedName = (file.original_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return `
+                <tr>
+                    <td><strong><i class="fa-solid fa-file-shield text-primary"></i> ${safeName}</strong></td>
+                    <td>${formatBytes(file.file_size)}</td>
+                    <td><span class="badge">${safeMime}</span></td>
+                    <td>${new Date(file.created_at).toLocaleString()}</td>
+                    <td>
+                        <div class="demo-btn-group">
+                            <button class="btn btn-sm btn-outline" onclick="downloadFile(${file.id}, '${jsEscapedName}')" title="Download & Decrypt"><i class="fa-solid fa-download"></i></button>
+                            <button class="btn btn-sm btn-outline" onclick="openShareModal(${file.id}, '${jsEscapedName}')" title="Share Access"><i class="fa-solid fa-share-nodes"></i></button>
+                            <button class="btn btn-sm btn-outline" onclick="openRenameModal(${file.id}, '${jsEscapedName}')" title="Rename"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteFile(${file.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${err.message}</td></tr>`;
     }
