@@ -188,20 +188,40 @@
 
                 <!-- Tab Content: Shared With Me -->
                 <div id="content-shared" class="dash-tab-content">
-                    <div class="table-container glass-panel">
+                    <div class="table-container glass-panel" style="margin-bottom: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-inbox text-primary"></i> Files Shared With Me</h3>
                         <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>File Name</th>
                                     <th>Shared By</th>
                                     <th>Permission</th>
-                                    <th>Expires</th>
+                                    <th>Validity / Expiration</th>
                                     <th>Downloads</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="shared-table-body">
                                 <tr><td colspan="6" class="text-center">Loading shared files...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-container glass-panel">
+                        <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-paper-plane text-primary"></i> Active Shares Created By Me</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Recipient</th>
+                                    <th>Permission</th>
+                                    <th>Validity / Expiration</th>
+                                    <th>Downloads</th>
+                                    <th>Revoke Share</th>
+                                </tr>
+                            </thead>
+                            <tbody id="created-shares-table-body">
+                                <tr><td colspan="6" class="text-center">Loading sent shares...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -309,15 +329,25 @@
                         </select>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label>Expiration (Hours)</label>
-                            <input type="number" id="share-expiry" placeholder="Optional (e.g. 24)" min="1">
+                    <div class="form-group">
+                        <label>Expiration / Validity Period</label>
+                        <div class="demo-btn-group" style="margin-bottom: 0.25rem;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setExpiryPreset(1)">⚡ 1 Hour</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setExpiryPreset(24)">🕒 24 Hours</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setExpiryPreset(168)">📅 7 Days</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setExpiryPreset(null)">♾️ Never</button>
                         </div>
-                        <div class="form-group col">
-                            <label>Max Download Count</label>
-                            <input type="number" id="share-max-downloads" placeholder="Optional (e.g. 3)" min="1">
+                        <input type="number" id="share-expiry" placeholder="Custom hours (e.g. 24)" min="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Download Limit Validity</label>
+                        <div class="demo-btn-group" style="margin-bottom: 0.25rem;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setDownloadPreset(1)">🔒 1 Download (Single-Use)</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setDownloadPreset(5)">🔢 5 Downloads</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="setDownloadPreset(null)">♾️ Unlimited</button>
                         </div>
+                        <input type="number" id="share-max-downloads" placeholder="Custom limit (e.g. 3)" min="1">
                     </div>
                 </div>
                 <div class="modal-footer">

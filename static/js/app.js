@@ -365,6 +365,16 @@ async function deleteFile(id) {
 }
 
 // Sharing Operations
+function setExpiryPreset(hours) {
+    const input = document.getElementById('share-expiry');
+    if (input) input.value = hours !== null ? hours : '';
+}
+
+function setDownloadPreset(count) {
+    const input = document.getElementById('share-max-downloads');
+    if (input) input.value = count !== null ? count : '';
+}
+
 function openShareModal(id, name) {
     document.getElementById('share-file-id').value = id;
     document.getElementById('share-file-name').textContent = name;
@@ -376,10 +386,15 @@ function openShareModal(id, name) {
 
 async function submitShareForm() {
     const file_id = parseInt(document.getElementById('share-file-id').value);
-    const target_user_identifier = document.getElementById('share-recipient').value;
+    const target_user_identifier = document.getElementById('share-recipient').value.trim();
     const permission = document.getElementById('share-permission').value;
     const expiry_hours = document.getElementById('share-expiry').value ? parseInt(document.getElementById('share-expiry').value) : null;
     const max_downloads = document.getElementById('share-max-downloads').value ? parseInt(document.getElementById('share-max-downloads').value) : null;
+
+    if (!target_user_identifier) {
+        showToast('Please enter a recipient email or username', 'error');
+        return;
+    }
 
     try {
         const res = await fetch(`${API_BASE}/shares`, {
@@ -394,8 +409,13 @@ async function submitShareForm() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Share creation failed');
 
-        showToast(`File shared with ${target_user_identifier}!`, 'success');
+        let validityMsg = 'File shared successfully!';
+        if (expiry_hours) validityMsg += ` Valid for ${expiry_hours}h.`;
+        if (max_downloads) validityMsg += ` Limited to ${max_downloads} downloads.`;
+
+        showToast(validityMsg, 'success');
         closeModal('modal-share');
+        loadSharedFiles();
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -403,7 +423,13 @@ async function submitShareForm() {
 
 // Shared With Me Tab
 async function loadSharedFiles() {
+    loadReceivedShares();
+    loadCreatedShares();
+}
+
+async function loadReceivedShares() {
     const tbody = document.getElementById('shared-table-body');
+    if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="6" class="text-center">Loading shared files...</td></tr>`;
 
     try {
@@ -411,29 +437,66 @@ async function loadSharedFiles() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
+        if (res.status === 401) {
+            handleLogout();
+            showToast('Session expired. Please log in again.', 'error');
+            return;
+        }
+
         if (!res.ok) throw new Error('Failed to load shared files');
         const shares = await res.json();
 
-        if (shares.length === 0) {
+        if (!shares || shares.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">No files have been shared with you yet.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = shares.map(s => {
+            const safeFilename = escapeHtml(s.filename || 'Shared File');
+            const safeSharedBy = escapeHtml(s.shared_by_email || 'Unknown');
+            const jsEscapedFilename = (s.filename || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             const isExpired = s.is_expired;
             const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
             const canDownload = !isExpired && !isLimitReached && s.permission !== 'VIEW';
 
+            // Calculate human-readable validity text
+            let validityBadge = '<span class="badge badge-success"><i class="fa-solid fa-infinity"></i> Never Expires</span>';
+            if (s.expiry_at) {
+                const expiryDate = new Date(s.expiry_at);
+                const now = new Date();
+                if (isExpired) {
+                    validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
+                } else {
+                    const diffMs = expiryDate - now;
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    if (diffHours > 24) {
+                        const days = Math.floor(diffHours / 24);
+                        validityBadge = `<span class="badge badge-success"><i class="fa-solid fa-clock"></i> Valid (${days}d left)</span>`;
+                    } else if (diffHours > 0) {
+                        validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Valid (${diffHours}h ${diffMins}m left)</span>`;
+                    } else {
+                        validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Expiring Soon (${diffMins}m left)</span>`;
+                    }
+                }
+            }
+
+            let downloadStatus = `${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}`;
+            if (isLimitReached) {
+                downloadStatus += ` <span class="badge badge-danger">Limit Exceeded</span>`;
+            }
+
             return `
                 <tr>
-                    <td><strong><i class="fa-solid fa-file-circle-check text-primary"></i> ${s.filename}</strong></td>
-                    <td>${s.shared_by_email}</td>
-                    <td><span class="badge">${s.permission}</span></td>
-                    <td>${s.expiry_at ? new Date(s.expiry_at).toLocaleString() : 'Never'} ${isExpired ? '<span class="text-danger">(Expired)</span>' : ''}</td>
-                    <td>${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}</td>
+                    <td><strong><i class="fa-solid fa-file-circle-check text-primary"></i> ${safeFilename}</strong></td>
+                    <td>${safeSharedBy}</td>
+                    <td><span class="badge">${escapeHtml(s.permission)}</span></td>
+                    <td>${validityBadge}</td>
+                    <td>${downloadStatus}</td>
                     <td>
                         ${canDownload ? 
-                            `<button class="btn btn-sm btn-primary" onclick="downloadSharedFile(${s.id}, '${s.filename}')"><i class="fa-solid fa-download"></i> Download</button>` : 
+                            `<button class="btn btn-sm btn-primary" onclick="downloadSharedFile(${s.id}, '${jsEscapedFilename}')"><i class="fa-solid fa-download"></i> Download</button>` : 
                             `<button class="btn btn-sm btn-outline" disabled><i class="fa-solid fa-lock"></i> Restricted</button>`}
                     </td>
                 </tr>
@@ -441,6 +504,81 @@ async function loadSharedFiles() {
         }).join('');
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
+
+async function loadCreatedShares() {
+    const tbody = document.getElementById('created-shares-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center">Loading sent shares...</td></tr>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/created`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to load sent shares');
+        const shares = await res.json();
+
+        if (!shares || shares.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">You have not shared any files with others yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = shares.map(s => {
+            const safeFilename = escapeHtml(s.filename || 'Shared File');
+            const safeRecipient = escapeHtml(s.shared_with_email || 'Unknown User');
+            const isRevoked = s.is_revoked;
+            const isExpired = s.is_expired;
+            const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
+
+            let validityBadge = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>';
+            if (isRevoked) {
+                validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Revoked</span>`;
+            } else if (isExpired) {
+                validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
+            } else if (isLimitReached) {
+                validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-ban"></i> Limit Reached</span>`;
+            } else if (s.expiry_at) {
+                const expiryDate = new Date(s.expiry_at);
+                const diffMs = expiryDate - new Date();
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                validityBadge = `<span class="badge badge-success"><i class="fa-solid fa-clock"></i> Expires in ${diffHours}h</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><strong><i class="fa-solid fa-share-nodes text-primary"></i> ${safeFilename}</strong></td>
+                    <td>${safeRecipient}</td>
+                    <td><span class="badge">${escapeHtml(s.permission)}</span></td>
+                    <td>${validityBadge}</td>
+                    <td>${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}</td>
+                    <td>
+                        ${!isRevoked ? 
+                            `<button class="btn btn-sm btn-danger" onclick="revokeShareAccess(${s.id})"><i class="fa-solid fa-user-xmark"></i> Revoke</button>` : 
+                            `<span class="subtext">Revoked</span>`}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
+
+async function revokeShareAccess(shareId) {
+    if (!confirm('Are you sure you want to revoke share access for this file? The recipient will no longer be able to download it.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/shares/${shareId}/revoke`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to revoke share');
+        showToast('Share access revoked successfully', 'success');
+        loadSharedFiles();
+    } catch (err) {
+        showToast(err.message, 'error');
     }
 }
 
