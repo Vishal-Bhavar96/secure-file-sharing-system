@@ -16,6 +16,7 @@ from app.routes.files import router as files_router
 from app.routes.shares import router as shares_router
 from app.routes.audit import router as audit_router
 from app.routes.admin import router as admin_router
+from app.routes.users import router as users_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +45,7 @@ app.add_middleware(
 # Mount API Routers
 app.include_router(health_router)
 app.include_router(auth_router, prefix=settings.API_V1_STR)
+app.include_router(users_router, prefix=settings.API_V1_STR)
 app.include_router(files_router, prefix=settings.API_V1_STR)
 app.include_router(shares_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)

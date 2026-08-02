@@ -5,12 +5,13 @@ from sqlalchemy.orm import Session
 import io
 from app.database.session import get_db
 from app.models.user import User
-from app.schemas.file import FileOut, FileRenameRequest
+from app.schemas.file import FileOut, FileRenameRequest, FolderCreateRequest, FolderOut, FileMoveRequest
 from app.security.jwt import get_current_user
 from app.services.file_service import (
     upload_file, list_user_files, get_file_for_owner, 
     download_and_decrypt_file, rename_file, delete_file,
-    list_trash_files, restore_file, permanently_delete_file, empty_trash
+    list_trash_files, restore_file, permanently_delete_file, empty_trash,
+    create_folder, list_user_folders, move_file_to_folder
 )
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -39,6 +40,27 @@ def list_files(
         db, user=current_user, folder=folder, 
         search_query=search, mime_filter=mime_type, sort_by=sort_by
     )
+
+@router.post("/folders", response_model=FolderOut, status_code=status.HTTP_201_CREATED)
+def make_folder(
+    folder_in: FolderCreateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    return create_folder(
+        db, user=current_user, folder_name=folder_in.folder_name,
+        parent_folder=folder_in.parent_folder or "/", ip_address=ip
+    )
+
+@router.get("/folders", response_model=List[FolderOut])
+def get_user_folders(
+    parent_folder: Optional[str] = "/",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return list_user_folders(db, user=current_user, parent_folder=parent_folder or "/")
 
 @router.get("/trash", response_model=List[FileOut])
 def get_trash_files(
@@ -91,6 +113,18 @@ def rename(
 ):
     ip = request.client.host if request.client else None
     return rename_file(db, file_id=file_id, new_name=rename_in.new_name, user=current_user, ip_address=ip)
+
+@router.post("/{file_id}/move", response_model=FileOut)
+@router.put("/{file_id}/move", response_model=FileOut)
+def move_file_route(
+    file_id: int,
+    move_in: FileMoveRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    return move_file_to_folder(db, file_id=file_id, target_folder=move_in.target_folder, user=current_user, ip_address=ip)
 
 @router.post("/{file_id}/restore", response_model=FileOut)
 @router.put("/{file_id}/restore", response_model=FileOut)

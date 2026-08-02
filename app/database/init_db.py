@@ -1,10 +1,34 @@
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database.session import Base, engine, SessionLocal
 from app.models.user import User, UserRole
 from app.security.password import get_password_hash
 
+def migrate_schema():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(users)"))
+            columns = [row[1] for row in result.fetchall()]
+            if columns:
+                if "avatar_path" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(500)"))
+                if "theme_preference" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN theme_preference VARCHAR(20) DEFAULT 'dark'"))
+                if "default_file_sort" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN default_file_sort VARCHAR(50) DEFAULT 'date_desc'"))
+                if "items_per_page" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN items_per_page INTEGER DEFAULT 10"))
+                if "last_login_at" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at DATETIME"))
+                if "last_password_change_at" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_password_change_at DATETIME"))
+                conn.commit()
+    except Exception:
+        pass
+
 def init_db(db: Session = None):
     Base.metadata.create_all(bind=engine)
+    migrate_schema()
 
     close_after = False
     if db is None:

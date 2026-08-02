@@ -119,6 +119,24 @@ def authenticate_user(db: Session, login_in: UserLogin, ip_address: str = None) 
         )
 
     token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role.value})
+
+    # Update last login timestamp and record session
+    from datetime import datetime
+    from app.models.session import UserSession
+
+    user.last_login_at = datetime.utcnow()
+    
+    session_record = UserSession(
+        user_id=user.id,
+        session_token=token,
+        user_agent="SecureShare Web Application Client",
+        ip_address=ip_address or "127.0.0.1",
+        is_active=True
+    )
+    db.add(session_record)
+    db.commit()
+    db.refresh(user)
+
     log_activity(db, AuditAction.LOGIN_SUCCESS, user_id=user.id, user_email=user.email, resource=f"User:{user.id}", details="User logged in successfully", success=True, ip_address=ip_address)
     
     return user, token

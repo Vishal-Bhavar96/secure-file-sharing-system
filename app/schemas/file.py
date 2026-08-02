@@ -19,5 +19,25 @@ class FileOut(BaseModel):
 class FileRenameRequest(BaseModel):
     new_name: str = Field(..., min_length=1, max_length=200)
 
+class FileMoveRequest(BaseModel):
+    target_folder: str = Field(..., min_length=1, max_length=255)
+
 class FolderCreateRequest(BaseModel):
     folder_name: str = Field(..., min_length=1, max_length=100)
+    parent_folder: Optional[str] = Field("/", max_length=255)
+
+class FolderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    owner_id: int
+    name: str
+    path: str
+    parent_folder: str
+    created_at: datetime
+
+class FolderContentsOut(BaseModel):
+    current_folder: str
+    folders: List[FolderOut]
+    files: List[FileOut]
+

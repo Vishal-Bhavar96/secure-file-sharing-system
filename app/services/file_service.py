@@ -6,6 +6,7 @@ from sqlalchemy import or_
 from fastapi import HTTPException, status, UploadFile
 from app.config.settings import settings
 from app.models.file import File
+from app.models.folder import Folder
 from app.models.user import User, UserRole
 from app.models.audit_log import AuditAction
 from app.services.encryption_service import encryption_service
@@ -307,3 +308,87 @@ def empty_trash(db: Session, user: User, ip_address: str = None) -> int:
         ip_address=ip_address
     )
     return count
+
+def create_folder(db: Session, user: User, folder_name: str, parent_folder: str = "/", ip_address: str = None) -> Folder:
+    clean_name = sanitize_filename(folder_name).strip()
+    if not clean_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid folder name")
+
+    if not parent_folder:
+        parent_folder = "/"
+    if not parent_folder.startswith("/"):
+        parent_folder = "/" + parent_folder
+    if len(parent_folder) > 1:
+        parent_folder = parent_folder.rstrip("/")
+
+    path = f"/{clean_name}" if parent_folder == "/" else f"{parent_folder}/{clean_name}"
+
+    existing = db.query(Folder).filter(Folder.owner_id == user.id, Folder.path == path).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Folder already exists at this location")
+
+    new_folder = Folder(
+        owner_id=user.id,
+        name=clean_name,
+        path=path,
+        parent_folder=parent_folder
+    )
+    db.add(new_folder)
+    db.commit()
+    db.refresh(new_folder)
+
+    log_activity(
+        db,
+        action=AuditAction.FOLDER_CREATED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"Folder:{new_folder.id}:{path}",
+        details=f"Created folder '{clean_name}' in {parent_folder}",
+        success=True,
+        ip_address=ip_address
+    )
+    return new_folder
+
+def list_user_folders(db: Session, user: User, parent_folder: str = "/") -> List[Folder]:
+    if not parent_folder:
+        parent_folder = "/"
+    if not parent_folder.startswith("/"):
+        parent_folder = "/" + parent_folder
+    if len(parent_folder) > 1:
+        parent_folder = parent_folder.rstrip("/")
+
+    folders = db.query(Folder).filter(Folder.owner_id == user.id, Folder.parent_folder == parent_folder).order_by(Folder.name.asc()).all()
+    return folders
+
+def move_file_to_folder(db: Session, file_id: int, target_folder: str, user: User, ip_address: str = None) -> File:
+    db_file = db.query(File).filter(File.id == file_id, File.is_deleted == False).first()
+    if not db_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    if db_file.owner_id != user.id and user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden: You do not own this file")
+
+    if not target_folder:
+        target_folder = "/"
+    if not target_folder.startswith("/"):
+        target_folder = "/" + target_folder
+    if len(target_folder) > 1:
+        target_folder = target_folder.rstrip("/")
+
+    old_folder = db_file.folder
+    db_file.folder = target_folder
+    db.commit()
+    db.refresh(db_file)
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_MOVED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"File:{file_id}:{db_file.original_name}",
+        details=f"Moved file from {old_folder} to {target_folder}",
+        success=True,
+        ip_address=ip_address
+    )
+    return db_file
+
