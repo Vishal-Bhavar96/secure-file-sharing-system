@@ -9,7 +9,8 @@ from app.schemas.file import FileOut, FileRenameRequest
 from app.security.jwt import get_current_user
 from app.services.file_service import (
     upload_file, list_user_files, get_file_for_owner, 
-    download_and_decrypt_file, rename_file, delete_file
+    download_and_decrypt_file, rename_file, delete_file,
+    list_trash_files, restore_file, permanently_delete_file, empty_trash
 )
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -38,6 +39,23 @@ def list_files(
         db, user=current_user, folder=folder, 
         search_query=search, mime_filter=mime_type, sort_by=sort_by
     )
+
+@router.get("/trash", response_model=List[FileOut])
+def get_trash_files(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return list_trash_files(db, user=current_user)
+
+@router.delete("/trash/empty", status_code=status.HTTP_200_OK)
+def clear_trash(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    count = empty_trash(db, user=current_user, ip_address=ip)
+    return {"message": f"Successfully emptied Recycle Bin ({count} files permanently deleted)", "count": count}
 
 @router.get("/{file_id}", response_model=FileOut)
 def get_file_details(
@@ -73,6 +91,28 @@ def rename(
 ):
     ip = request.client.host if request.client else None
     return rename_file(db, file_id=file_id, new_name=rename_in.new_name, user=current_user, ip_address=ip)
+
+@router.post("/{file_id}/restore", response_model=FileOut)
+@router.put("/{file_id}/restore", response_model=FileOut)
+def restore_deleted_file(
+    file_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    return restore_file(db, file_id=file_id, user=current_user, ip_address=ip)
+
+@router.delete("/{file_id}/permanent", status_code=status.HTTP_204_NO_CONTENT)
+def purge_file(
+    file_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    permanently_delete_file(db, file_id=file_id, user=current_user, ip_address=ip)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_file(

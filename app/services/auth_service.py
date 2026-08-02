@@ -40,14 +40,26 @@ def register_user(db: Session, user_in: UserRegister, ip_address: str = None) ->
     if not username:
         username = user_in.email.split("@")[0]
 
-    # 5. Duplicate Email Check
-    existing_email = db.query(User).filter(User.email == user_in.email).first()
+    # 5. Duplicate Email Check / Account Claiming
+    existing_email = db.query(User).filter(User.email.ilike(user_in.email)).first()
     if existing_email:
-        log_activity(db, AuditAction.USER_REGISTERED, user_email=user_in.email, details="Duplicate email", success=False, ip_address=ip_address)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists"
-        )
+        if existing_email.hashed_password:
+            log_activity(db, AuditAction.USER_REGISTERED, user_email=user_in.email, details="Duplicate email", success=False, ip_address=ip_address)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is already registered or already exists"
+            )
+        # Update details and password for auto-provisioned share recipient accounts (without password)
+        existing_email.name = user_in.name
+        existing_email.hashed_password = get_password_hash(user_in.password)
+        if user_in.username and not db.query(User).filter(User.username == user_in.username, User.id != existing_email.id).first():
+            existing_email.username = user_in.username
+        if user_in.role:
+            existing_email.role = user_in.role
+        db.commit()
+        db.refresh(existing_email)
+        log_activity(db, AuditAction.USER_REGISTERED, user_id=existing_email.id, user_email=existing_email.email, resource=f"User:{existing_email.id}", details=f"Account claimed and password set", success=True, ip_address=ip_address)
+        return existing_email
 
     # 6. Duplicate Username Check
     existing_username = db.query(User).filter(User.username == username).first()

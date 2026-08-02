@@ -37,27 +37,53 @@ def create_file_share(
             detail="Only the file owner can share this file"
         )
 
-    # 2. Find target user
+    # 2. Find target user or auto-provision pending recipient account for email
+    target_identifier = share_in.target_user_identifier.strip()
     target_user = db.query(User).filter(
-        (User.email == share_in.target_user_identifier) | 
-        (User.username == share_in.target_user_identifier)
+        (User.email.ilike(target_identifier)) | 
+        (User.username.ilike(target_identifier))
     ).first()
 
     if not target_user:
-        log_activity(
-            db,
-            action=AuditAction.FILE_SHARED,
-            user_id=owner.id,
-            user_email=owner.email,
-            resource=f"File:{db_file.id}",
-            details=f"Target recipient '{share_in.target_user_identifier}' not found",
-            success=False,
-            ip_address=ip_address
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Target recipient '{share_in.target_user_identifier}' not found"
-        )
+        if "@" in target_identifier:
+            import secrets
+            from app.security.password import get_password_hash
+            from app.models.user import UserRole
+            
+            target_email = target_identifier.lower()
+            base_username = target_email.split("@")[0]
+            username = base_username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            target_user = User(
+                name=target_email.split("@")[0].capitalize(),
+                email=target_email,
+                username=username,
+                hashed_password=get_password_hash(secrets.token_urlsafe(16)),
+                role=UserRole.USER,
+                is_active=True
+            )
+            db.add(target_user)
+            db.commit()
+            db.refresh(target_user)
+        else:
+            log_activity(
+                db,
+                action=AuditAction.FILE_SHARED,
+                user_id=owner.id,
+                user_email=owner.email,
+                resource=f"File:{db_file.id}",
+                details=f"Target recipient '{share_in.target_user_identifier}' not found",
+                success=False,
+                ip_address=ip_address
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Target recipient '{share_in.target_user_identifier}' not found. Please enter a valid email address."
+            )
 
     if target_user.id == owner.id:
         raise HTTPException(

@@ -10,10 +10,11 @@ class FileOut(BaseModel):
     filename: str
     original_name: str
     file_size: int
-    mime_type: str
-    folder: str
+    mime_type: Optional[str] = "application/octet-stream"
+    folder: Optional[str] = "/"
+    is_deleted: bool = False
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
 class FileRenameRequest(BaseModel):
     new_name: str = Field(..., min_length=1, max_length=200)

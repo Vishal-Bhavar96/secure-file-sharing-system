@@ -1,4 +1,6 @@
-const API_BASE = '/api/v1';
+const API_BASE = (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8000'))
+    ? 'http://127.0.0.1:8000/api/v1'
+    : '/api/v1';
 let authToken = localStorage.getItem('access_token') || null;
 let currentUser = JSON.parse(localStorage.getItem('user_data')) || null;
 
@@ -104,7 +106,10 @@ async function handleLogin(e) {
         showToast(`Welcome back, ${currentUser.name}!`, 'success');
         showDashboardView();
     } catch (err) {
-        showToast(err.message, 'error');
+        const msg = (err.message === 'Failed to fetch' || err.name === 'TypeError')
+            ? 'Cannot connect to backend server. Please make sure py -m app.main is running on http://127.0.0.1:8000'
+            : err.message;
+        showToast(msg, 'error');
     }
 }
 
@@ -131,7 +136,10 @@ async function handleRegister(e) {
         switchAuthTab('login');
         fillDemo(email, password);
     } catch (err) {
-        showToast(err.message, 'error');
+        const msg = (err.message === 'Failed to fetch' || err.name === 'TypeError')
+            ? 'Cannot connect to backend server. Please make sure py -m app.main is running on http://127.0.0.1:8000'
+            : err.message;
+        showToast(msg, 'error');
     }
 }
 
@@ -168,6 +176,7 @@ function switchDashboardTab(tab) {
     if (tab === 'files') loadUserFiles();
     if (tab === 'shared') loadSharedFiles();
     if (tab === 'logs') loadAuditLogs();
+    if (tab === 'trash') loadTrashFiles();
     if (tab === 'admin') loadAdminStats();
 }
 
@@ -282,7 +291,10 @@ async function uploadSelectedFile(file) {
         if (!res.ok) throw new Error(data.detail || 'Upload failed');
 
         showToast(`File '${file.name}' uploaded and AES-256 encrypted successfully!`, 'success');
-        document.getElementById('file-input').value = '';
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) fileInput.value = '';
+        const searchInput = document.getElementById('file-search');
+        if (searchInput) searchInput.value = '';
         loadUserFiles();
     } catch (err) {
         showToast(err.message, 'error');
@@ -349,16 +361,17 @@ async function submitRenameForm() {
 }
 
 async function deleteFile(id) {
-    if (!confirm('Are you sure you want to delete this encrypted file?')) return;
+    if (!confirm('Are you sure you want to move this file to the Recycle Bin?')) return;
     try {
         const res = await fetch(`${API_BASE}/files/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
-        if (!res.ok) throw new Error('Failed to delete file');
-        showToast('File deleted successfully', 'success');
+        if (!res.ok) throw new Error('Failed to move file to Recycle Bin');
+        showToast('File moved to Recycle Bin', 'info');
         loadUserFiles();
+        if (typeof loadTrashFiles === 'function') loadTrashFiles();
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -517,7 +530,16 @@ async function loadCreatedShares() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
-        if (!res.ok) throw new Error('Failed to load sent shares');
+        if (res.status === 401) {
+            handleLogout();
+            showToast('Session expired. Please log in again.', 'error');
+            return;
+        }
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Failed to load sent shares');
+        }
         const shares = await res.json();
 
         if (!shares || shares.length === 0) {
@@ -619,7 +641,16 @@ async function loadAuditLogs() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
-        if (!res.ok) throw new Error('Failed to load audit logs');
+        if (res.status === 401) {
+            handleLogout();
+            showToast('Session expired. Please log in again.', 'error');
+            return;
+        }
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Failed to load audit logs');
+        }
         const logs = await res.json();
 
         tbody.innerHTML = logs.map(log => `
@@ -671,6 +702,125 @@ async function loadAdminStats() {
                 </tr>
             `).join('');
         }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// Recycle Bin Operations
+async function loadTrashFiles() {
+    const tbody = document.getElementById('trash-list-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center">Loading Recycle Bin files...</td></tr>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/files/trash`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (res.status === 401) {
+            handleLogout();
+            showToast('Session expired. Please log in again.', 'error');
+            return;
+        }
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || 'Failed to load Recycle Bin files');
+        }
+
+        const files = await res.json();
+
+        if (!files || files.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state text-center">No deleted files in Recycle Bin.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = files.map(file => `
+            <tr>
+                <td>
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                        <i class="fa-solid fa-file" style="color: var(--accent-blue, #3b82f6);"></i>
+                        <strong>${escapeHtml(file.original_name)}</strong>
+                    </div>
+                </td>
+                <td>${formatBytes(file.file_size)}</td>
+                <td><span class="file-type-badge">${escapeHtml(file.mime_type || 'Unknown')}</span></td>
+                <td>${new Date(file.updated_at || file.created_at).toLocaleString()}</td>
+                <td>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-sm btn-outline" onclick="restoreFile(${file.id})" title="Restore to My Files">
+                            <i class="fa-solid fa-rotate-left"></i> Restore
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="permanentlyDeleteFile(${file.id})" title="Permanently Delete">
+                            <i class="fa-solid fa-trash-xmark"></i> Delete Permanently
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${escapeHtml(err.message)}</td></tr>`;
+        showToast(err.message, 'error');
+    }
+}
+
+async function restoreFile(fileId) {
+    try {
+        const res = await fetch(`${API_BASE}/files/${fileId}/restore`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || 'Failed to restore file');
+        }
+
+        showToast('File restored successfully to My Files!', 'success');
+        loadTrashFiles();
+        loadUserFiles();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function permanentlyDeleteFile(fileId) {
+    if (!confirm('Are you sure you want to PERMANENTLY delete this file? This action cannot be undone.')) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/files/${fileId}/permanent`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || 'Failed to purge file');
+        }
+
+        showToast('File permanently purged from system.', 'success');
+        loadTrashFiles();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function emptyTrash() {
+    if (!confirm('Are you sure you want to empty the entire Recycle Bin? All deleted files will be PERMANENTLY lost.')) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/files/trash/empty`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to empty Recycle Bin');
+
+        showToast(data.message || 'Recycle Bin emptied successfully!', 'success');
+        loadTrashFiles();
     } catch (err) {
         showToast(err.message, 'error');
     }

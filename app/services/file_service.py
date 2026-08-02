@@ -202,16 +202,9 @@ def delete_file(db: Session, file_id: int, user: User, ip_address: str = None) -
 
     db_file = get_file_for_owner(db, file_id, user, ip_address)
     
-    # Soft delete record
+    # Soft delete record (move to Recycle Bin, preserve disk payload for restore)
     db_file.is_deleted = True
     db.commit()
-
-    # Clean up disk storage payload if exists
-    if os.path.exists(db_file.encrypted_path):
-        try:
-            os.remove(db_file.encrypted_path)
-        except Exception:
-            pass
 
     log_activity(
         db,
@@ -219,8 +212,98 @@ def delete_file(db: Session, file_id: int, user: User, ip_address: str = None) -
         user_id=user.id,
         user_email=user.email,
         resource=f"File:{file_id}:{db_file.original_name}",
-        details="File deleted successfully",
+        details="File moved to Recycle Bin",
         success=True,
         ip_address=ip_address
     )
     return True
+
+def list_trash_files(db: Session, user: User) -> List[File]:
+    return db.query(File).filter(
+        File.owner_id == user.id,
+        File.is_deleted == True
+    ).order_by(File.updated_at.desc()).all()
+
+def restore_file(db: Session, file_id: int, user: User, ip_address: str = None) -> File:
+    db_file = db.query(File).filter(File.id == file_id, File.is_deleted == True).first()
+    if not db_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in Recycle Bin")
+
+    if db_file.owner_id != user.id and user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden: You do not own this file")
+
+    db_file.is_deleted = False
+    db.commit()
+    db.refresh(db_file)
+
+    log_activity(
+        db,
+        action=AuditAction.PERMISSION_CHANGED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"File:{file_id}:{db_file.original_name}",
+        details="File restored from Recycle Bin",
+        success=True,
+        ip_address=ip_address
+    )
+    return db_file
+
+def permanently_delete_file(db: Session, file_id: int, user: User, ip_address: str = None) -> bool:
+    db_file = db.query(File).filter(File.id == file_id, File.is_deleted == True).first()
+    if not db_file:
+        # Also check active files if permanent delete called directly
+        db_file = db.query(File).filter(File.id == file_id).first()
+    
+    if not db_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    if db_file.owner_id != user.id and user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden: You do not own this file")
+
+    file_name = db_file.original_name
+    # Unlink payload from disk
+    if os.path.exists(db_file.encrypted_path):
+        try:
+            os.remove(db_file.encrypted_path)
+        except Exception:
+            pass
+
+    db.delete(db_file)
+    db.commit()
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_DELETED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"File:{file_id}:{file_name}",
+        details="File permanently purged from system",
+        success=True,
+        ip_address=ip_address
+    )
+    return True
+
+def empty_trash(db: Session, user: User, ip_address: str = None) -> int:
+    trash_files = db.query(File).filter(File.owner_id == user.id, File.is_deleted == True).all()
+    count = len(trash_files)
+    for f in trash_files:
+        if os.path.exists(f.encrypted_path):
+            try:
+                os.remove(f.encrypted_path)
+            except Exception:
+                pass
+        db.delete(f)
+    
+    db.commit()
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_DELETED,
+        user_id=user.id,
+        user_email=user.email,
+        resource="RecycleBin",
+        details=f"Emptied Recycle Bin ({count} files purged)",
+        success=True,
+        ip_address=ip_address
+    )
+    return count

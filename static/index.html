@@ -127,6 +127,9 @@
                         <button class="dash-tab-btn" id="tab-logs" onclick="switchDashboardTab('logs')">
                             <i class="fa-solid fa-list-check"></i> Security Audit Logs
                         </button>
+                        <button class="dash-tab-btn" id="tab-trash" onclick="switchDashboardTab('trash')">
+                            <i class="fa-solid fa-trash-can"></i> Recycle Bin
+                        </button>
                         <button class="dash-tab-btn admin-only" id="tab-admin" onclick="switchDashboardTab('admin')" style="display:none;">
                             <i class="fa-solid fa-chart-line"></i> Admin Security Center
                         </button>
@@ -242,6 +245,42 @@
                             </thead>
                             <tbody id="logs-table-body">
                                 <tr><td colspan="5" class="text-center">Loading audit events...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Recycle Bin -->
+                <div id="content-trash" class="dash-tab-content">
+                    <div class="glass-panel" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem;">
+                        <div>
+                            <h2 style="font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-trash-can" style="color: var(--accent-red, #ef4444);"></i> Recycle Bin
+                            </h2>
+                            <p style="color: var(--text-muted, #94a3b8); font-size: 0.875rem; margin-top: 0.25rem;">
+                                Deleted files are safely stored here. You can restore them to 'My Files' or permanently delete them.
+                            </p>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="emptyTrash()" id="empty-trash-btn">
+                            <i class="fa-solid fa-fire"></i> Empty Recycle Bin
+                        </button>
+                    </div>
+
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Size</th>
+                                    <th>Type</th>
+                                    <th>Deleted Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trash-list-body">
+                                <tr>
+                                    <td colspan="5" class="empty-state">No deleted files in Recycle Bin.</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
