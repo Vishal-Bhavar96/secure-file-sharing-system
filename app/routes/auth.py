@@ -26,3 +26,23 @@ def login(login_in: UserLogin, request: Request, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.get("/password-requirements")
+def get_password_requirements():
+    return {
+        "min_length": 8,
+        "max_length": 128,
+        "require_uppercase": True,
+        "require_lowercase": True,
+        "require_digit": True,
+        "require_special": True,
+        "special_chars": "!@#$%^&*()_+-=[]{};':\"\\|,.<>/?",
+        "rules": [
+            {"key": "length", "label": "Minimum 8 characters", "min": 8},
+            {"key": "upper", "label": "At least 1 uppercase letter (A-Z)"},
+            {"key": "lower", "label": "At least 1 lowercase letter (a-z)"},
+            {"key": "number", "label": "At least 1 number (0-9)"},
+            {"key": "special", "label": "At least 1 special character (!@#$%^&*)"}
+        ]
+    }
+

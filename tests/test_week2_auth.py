@@ -86,3 +86,12 @@ def test_authorization_matrix(client, token_user_a, token_admin):
     # Admin -> Admin feature ALLOWED
     res_admin = client.get("/api/v1/admin/stats", headers={"Authorization": f"Bearer {token_admin}"})
     assert res_admin.status_code == 200
+
+def test_password_requirements_endpoint(client):
+    res = client.get("/api/v1/auth/password-requirements")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["min_length"] == 8
+    assert data["require_uppercase"] is True
+    assert "rules" in data
+

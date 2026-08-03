@@ -597,21 +597,46 @@ body {
 }
 
 /* User Avatar & Account Dropdown */
+.account-control-container {
+    position: relative;
+    display: inline-block;
+}
+
+.account-dropdown-trigger {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+    padding: 0.4rem 0.85rem !important;
+    border-radius: var(--radius-md);
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border-glass);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.account-dropdown-trigger:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
 .avatar-circle {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     font-size: 0.85rem;
-    border: 2px solid rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     overflow: hidden;
     flex-shrink: 0;
-    user-select: none;
+    position: relative;
 }
 
 .avatar-circle img {
@@ -620,10 +645,32 @@ body {
     object-fit: cover;
 }
 
+.avatar-clickable {
+    cursor: pointer;
+}
+
+.avatar-overlay, .avatar-overlay-xl {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 0.8rem;
+}
+
+.avatar-clickable:hover .avatar-overlay,
+.avatar-clickable:hover .avatar-overlay-xl {
+    opacity: 1;
+}
+
 .avatar-lg {
-    width: 48px;
-    height: 48px;
-    font-size: 1.1rem;
+    width: 46px;
+    height: 46px;
+    font-size: 1.05rem;
 }
 
 .avatar-xl {
@@ -632,41 +679,25 @@ body {
     font-size: 1.6rem;
 }
 
-.account-dropdown-trigger {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.4rem 0.8rem;
-    border-radius: var(--radius-md);
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid var(--border-glass);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.account-dropdown-trigger:hover {
-    background: rgba(30, 41, 59, 0.8);
-    border-color: var(--accent-blue);
-}
-
 .user-header-info {
-    display: flex;
-    flex-direction: column;
-    text-align: left;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
 }
 
-.user-header-name-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-weight: 600;
+#user-display-name {
     font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
 }
 
 .dropdown-arrow {
     font-size: 0.75rem;
     color: var(--text-secondary);
     transition: transform 0.2s ease;
+    margin-left: 0.2rem;
 }
 
 .account-dropdown-trigger.active .dropdown-arrow {
@@ -678,15 +709,20 @@ body {
     position: absolute;
     top: calc(100% + 0.5rem);
     right: 0;
-    width: 260px;
-    z-index: 300;
-    padding: 0.75rem 0;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    width: 250px;
+    background: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 12px !important;
+    padding: 0.6rem 0 !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6) !important;
+    z-index: 1000 !important;
+    flex-direction: column !important;
+    backdrop-filter: blur(16px);
     animation: fadeInDown 0.2s ease-out;
 }
 
 .account-dropdown-menu.active {
-    display: block;
+    display: flex !important;
 }
 
 @keyframes fadeInDown {
@@ -698,7 +734,7 @@ body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.5rem 1rem 0.75rem 1rem;
+    padding: 0.6rem 1rem;
 }
 
 .dropdown-header-info {
@@ -708,7 +744,8 @@ body {
 }
 
 .dropdown-header-info strong {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    color: #f8fafc;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -716,6 +753,7 @@ body {
 
 .dropdown-header-info .subtext {
     font-size: 0.75rem;
+    color: #94a3b8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -723,33 +761,36 @@ body {
 
 .dropdown-divider {
     height: 1px;
-    background: var(--border-glass);
+    background: rgba(255, 255, 255, 0.1);
     margin: 0.4rem 0;
 }
 
 .dropdown-item {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 1.25rem;
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.15s ease;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    padding: 0.65rem 1rem !important;
+    background: transparent !important;
+    border: none !important;
+    color: #f8fafc !important;
+    font-size: 0.875rem !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
+    transition: background 0.15s ease !important;
+    margin: 0 !important;
 }
 
 .dropdown-item:hover {
-    background: rgba(56, 189, 248, 0.12);
-    color: var(--accent-blue);
+    background: rgba(56, 189, 248, 0.15) !important;
+    color: var(--accent-blue) !important;
 }
 
 .dropdown-item.text-danger:hover {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--accent-red);
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: var(--accent-red) !important;
 }
 
 /* Account Modal Layout */

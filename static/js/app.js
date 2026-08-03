@@ -7,6 +7,7 @@ let currentFolder = '/';
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    fetchPasswordRequirements();
     if (authToken && currentUser) {
         showDashboardView();
     } else {
@@ -1028,8 +1029,30 @@ async function fetchUserAvatarBlob(imgElementId) {
     }
 }
 
+function openAvatarFilePicker(e) {
+    if (e) e.stopPropagation();
+    closeAccountDropdown();
+    const modal = document.getElementById('modal-account');
+    if (modal && !modal.classList.contains('active')) {
+        openAccountModal('profile');
+    }
+    setTimeout(() => {
+        const fileInput = document.getElementById('avatar-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+            fileInput.click();
+        }
+    }, 150);
+}
+
 function updateUserHeaderUI() {
-    if (!currentUser) return;
+    const container = document.getElementById('account-control-container');
+    if (!currentUser) {
+        if (container) container.style.display = 'none';
+        return;
+    }
+
+    if (container) container.style.display = 'inline-block';
 
     const nameEl = document.getElementById('user-display-name');
     const roleEl = document.getElementById('user-display-role');
@@ -1315,11 +1338,96 @@ async function submitEmailChangeForm(e) {
     }
 }
 
+let livePasswordRequirements = {
+    min_length: 8,
+    require_uppercase: true,
+    require_lowercase: true,
+    require_digit: true,
+    require_special: true
+};
+
+async function fetchPasswordRequirements() {
+    try {
+        const res = await fetch(`${API_BASE}/auth/password-requirements`);
+        if (res.ok) {
+            const data = await res.json();
+            livePasswordRequirements = data;
+        }
+    } catch (err) {
+        console.warn('Using default password rules:', err);
+    }
+}
+
+function checkRegPasswordStrength(val) {
+    const fill = document.getElementById('reg-strength-bar-fill');
+    const label = document.getElementById('reg-strength-label');
+
+    const minLen = livePasswordRequirements.min_length || 8;
+    const hasLength = val.length >= minLen;
+    const hasUpper = /[A-Z]/.test(val);
+    const hasLower = /[a-z]/.test(val);
+    const hasNumber = /[0-9]/.test(val);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(val);
+
+    updateCheckItem('reg-chk-length', hasLength);
+    updateCheckItem('reg-chk-upper', hasUpper);
+    updateCheckItem('reg-chk-lower', hasLower);
+    updateCheckItem('reg-chk-number', hasNumber);
+    updateCheckItem('reg-chk-special', hasSpecial);
+
+    const score = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+
+    if (fill && label) {
+        if (!val) {
+            fill.className = 'strength-fill';
+            fill.style.width = '0%';
+            label.textContent = 'Password Strength';
+            label.style.color = 'var(--text-secondary)';
+        } else if (score <= 2) {
+            fill.className = 'strength-fill weak';
+            label.textContent = 'Weak Password';
+            label.style.color = 'var(--accent-red)';
+        } else if (score <= 4) {
+            fill.className = 'strength-fill medium';
+            label.textContent = 'Medium Password';
+            label.style.color = '#f59e0b';
+        } else {
+            fill.className = 'strength-fill strong';
+            label.textContent = 'Strong Password';
+            label.style.color = 'var(--accent-green)';
+        }
+    }
+
+    checkRegPasswordMatch();
+}
+
+function checkRegPasswordMatch() {
+    const pwd = document.getElementById('reg-password').value;
+    const confirmPwd = document.getElementById('reg-confirm-password').value;
+    const msgEl = document.getElementById('reg-pwd-match-msg');
+
+    if (!msgEl) return;
+
+    if (!confirmPwd) {
+        msgEl.style.display = 'none';
+        return;
+    }
+
+    msgEl.style.display = 'block';
+    if (pwd === confirmPwd) {
+        msgEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> Passwords match`;
+        msgEl.style.color = 'var(--accent-green)';
+    } else {
+        msgEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Passwords do not match`;
+        msgEl.style.color = 'var(--accent-red)';
+    }
+}
+
 function checkPasswordStrength(val) {
     const fill = document.getElementById('strength-bar-fill');
     const label = document.getElementById('strength-label');
 
-    const hasLength = val.length >= 8;
+    const hasLength = val.length >= (livePasswordRequirements.min_length || 8);
     const hasUpper = /[A-Z]/.test(val);
     const hasLower = /[a-z]/.test(val);
     const hasNumber = /[0-9]/.test(val);

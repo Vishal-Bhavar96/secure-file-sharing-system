@@ -22,7 +22,48 @@
             </div>
             
             <div class="nav-actions" id="nav-actions">
-                <!-- User Profile / Quick Login Switches will render here -->
+                <div class="account-control-container" id="account-control-container" style="display:none; position: relative;">
+                    <div class="account-dropdown-trigger" id="account-dropdown-trigger" onclick="toggleAccountDropdown(event)">
+                        <div class="avatar-circle" id="user-header-avatar">
+                            <span id="user-header-initials">AJ</span>
+                            <img id="user-header-photo" src="" alt="Profile Photo" style="display:none;">
+                        </div>
+                        <div class="user-header-info">
+                            <span id="user-display-name">Alice Johnson</span>
+                            <span id="user-display-role" class="role-pill">USER</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down dropdown-arrow"></i>
+                    </div>
+
+                    <div class="account-dropdown-menu" id="account-dropdown-menu">
+                        <div class="dropdown-header">
+                            <div class="avatar-circle avatar-lg avatar-clickable" id="dropdown-header-avatar" onclick="openAvatarFilePicker(event)" title="Click to change profile photo">
+                                <span id="dropdown-header-initials">AJ</span>
+                                <img id="dropdown-header-photo" src="" alt="Profile Photo" style="display:none;">
+                                <div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>
+                            </div>
+                            <div class="dropdown-header-info">
+                                <strong id="dropdown-user-name">Alice Johnson</strong>
+                                <span class="subtext" id="dropdown-user-email">usera@secure.local</span>
+                                <span class="role-pill" id="dropdown-user-role">USER</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <button type="button" class="dropdown-item" onclick="openAccountModal('profile')">
+                            <i class="fa-solid fa-user"></i> <span>My Profile</span>
+                        </button>
+                        <button type="button" class="dropdown-item" onclick="openAccountModal('preferences')">
+                            <i class="fa-solid fa-sliders"></i> <span>Account Settings</span>
+                        </button>
+                        <button type="button" class="dropdown-item" onclick="openAccountModal('security')">
+                            <i class="fa-solid fa-shield-halved"></i> <span>Security & Sessions</span>
+                        </button>
+                        <div class="dropdown-divider"></div>
+                        <button type="button" class="dropdown-item text-danger" onclick="handleLogout()">
+                            <i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -90,12 +131,30 @@
 
                         <div class="form-group">
                             <label><i class="fa-solid fa-lock"></i> Password</label>
-                            <input type="password" id="reg-password" placeholder="Min 8 chars, 1 Upper, 1 Special" required>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="reg-password" placeholder="Enter secure password" required oninput="checkRegPasswordStrength(this.value)">
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-password', this)"></i>
+                            </div>
+                            <div class="strength-meter-container" style="margin-top: 0.5rem;">
+                                <div class="strength-bar"><div id="reg-strength-bar-fill" class="strength-fill"></div></div>
+                                <span id="reg-strength-label" class="strength-text">Password Strength</span>
+                            </div>
+                            <ul class="pwd-checklist" id="reg-pwd-checklist" style="margin-top: 0.5rem; font-size: 0.8rem; list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 0.25rem;">
+                                <li id="reg-chk-length"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> Minimum 8 characters</li>
+                                <li id="reg-chk-upper"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 uppercase letter (A-Z)</li>
+                                <li id="reg-chk-lower"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 lowercase letter (a-z)</li>
+                                <li id="reg-chk-number"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 number (0-9)</li>
+                                <li id="reg-chk-special"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 special character (!@#$%^&*)</li>
+                            </ul>
                         </div>
 
                         <div class="form-group">
                             <label><i class="fa-solid fa-shield"></i> Confirm Password</label>
-                            <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required oninput="checkRegPasswordMatch()">
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-confirm-password', this)"></i>
+                            </div>
+                            <div id="reg-pwd-match-msg" style="font-size: 0.78rem; margin-top: 0.25rem; display: none;"></div>
                         </div>
 
                         <div class="form-group">
@@ -133,50 +192,6 @@
                         <button class="dash-tab-btn admin-only" id="tab-admin" onclick="switchDashboardTab('admin')" style="display:none;">
                             <i class="fa-solid fa-chart-line"></i> Admin Security Center
                         </button>
-                    </div>
-
-                    <div class="account-control-container" id="account-control-container" style="position: relative;">
-                        <div class="account-dropdown-trigger" id="account-dropdown-trigger" onclick="toggleAccountDropdown(event)">
-                            <div class="avatar-circle" id="user-header-avatar">
-                                <span id="user-header-initials">AJ</span>
-                                <img id="user-header-photo" src="" alt="Profile Photo" style="display:none;">
-                            </div>
-                            <div class="user-header-info">
-                                <div class="user-header-name-row">
-                                    <span id="user-display-name">Alice Johnson</span>
-                                    <i class="fa-solid fa-chevron-down dropdown-arrow"></i>
-                                </div>
-                                <span id="user-display-role" class="role-pill">USER</span>
-                            </div>
-                        </div>
-
-                        <div class="account-dropdown-menu glass-panel" id="account-dropdown-menu">
-                            <div class="dropdown-header">
-                                <div class="avatar-circle avatar-lg" id="dropdown-header-avatar">
-                                    <span id="dropdown-header-initials">AJ</span>
-                                    <img id="dropdown-header-photo" src="" alt="Profile Photo" style="display:none;">
-                                </div>
-                                <div class="dropdown-header-info">
-                                    <strong id="dropdown-user-name">Alice Johnson</strong>
-                                    <span class="subtext" id="dropdown-user-email">usera@secure.local</span>
-                                    <span class="role-pill" id="dropdown-user-role">USER</span>
-                                </div>
-                            </div>
-                            <div class="dropdown-divider"></div>
-                            <button class="dropdown-item" onclick="openAccountModal('profile')">
-                                <i class="fa-solid fa-user"></i> My Profile
-                            </button>
-                            <button class="dropdown-item" onclick="openAccountModal('preferences')">
-                                <i class="fa-solid fa-sliders"></i> Account Settings
-                            </button>
-                            <button class="dropdown-item" onclick="openAccountModal('security')">
-                                <i class="fa-solid fa-shield-halved"></i> Security & Sessions
-                            </button>
-                            <div class="dropdown-divider"></div>
-                            <button class="dropdown-item text-danger" onclick="handleLogout()">
-                                <i class="fa-solid fa-right-from-bracket"></i> Logout
-                            </button>
-                        </div>
                     </div>
                 </div>
 
@@ -540,16 +555,17 @@
                             <p class="subtext" style="margin-bottom: 1.25rem;">Manage your profile photo and full name.</p>
 
                             <div class="avatar-edit-container">
-                                <div class="avatar-circle avatar-xl" id="modal-avatar-preview">
+                                <div class="avatar-circle avatar-xl avatar-clickable" id="modal-avatar-preview" onclick="openAvatarFilePicker(event)" title="Click to upload profile photo">
                                     <span id="modal-avatar-initials">AJ</span>
                                     <img id="modal-avatar-photo" src="" alt="Profile Photo" style="display:none;">
+                                    <div class="avatar-overlay-xl"><i class="fa-solid fa-camera"></i></div>
                                 </div>
                                 <div class="avatar-actions">
-                                    <label class="btn btn-sm btn-outline" for="avatar-file-input" style="cursor: pointer;">
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="openAvatarFilePicker(event)">
                                         <i class="fa-solid fa-camera"></i> Change Photo
-                                    </label>
+                                    </button>
                                     <input type="file" id="avatar-file-input" accept="image/jpeg,image/png,image/webp" onchange="handleAvatarFileSelect(event)" style="display:none;">
-                                    <button class="btn btn-sm btn-danger-outline" onclick="submitRemovePhoto()">
+                                    <button type="button" class="btn btn-sm btn-danger-outline" onclick="submitRemovePhoto()">
                                         <i class="fa-solid fa-trash"></i> Remove Photo
                                     </button>
                                     <p class="subtext" style="font-size: 0.75rem; margin-top: 0.25rem;">Allowed: JPG, JPEG, PNG, WEBP (Max 5MB)</p>
