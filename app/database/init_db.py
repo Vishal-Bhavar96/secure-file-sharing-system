@@ -23,6 +23,19 @@ def migrate_schema():
                 if "last_password_change_at" not in columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN last_password_change_at DATETIME"))
                 conn.commit()
+
+            res_shares = conn.execute(text("PRAGMA table_info(file_shares)"))
+            share_cols = [row[1] for row in res_shares.fetchall()]
+            if share_cols:
+                if "share_token" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN share_token VARCHAR(100)"))
+                if "password_hash" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN password_hash VARCHAR(255)"))
+                if "is_active" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                if "updated_at" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN updated_at DATETIME"))
+                conn.commit()
     except Exception:
         pass
 
