@@ -140,3 +140,126 @@ def authenticate_user(db: Session, login_in: UserLogin, ip_address: str = None) 
     log_activity(db, AuditAction.LOGIN_SUCCESS, user_id=user.id, user_email=user.email, resource=f"User:{user.id}", details="User logged in successfully", success=True, ip_address=ip_address)
     
     return user, token
+
+import random
+from datetime import datetime, timedelta
+from app.models.user import PasswordResetOTP
+from app.schemas.user import ResetPasswordOTPVerify
+
+def request_password_reset_otp(db: Session, email_or_username: str, ip_address: str = None) -> dict:
+    identifier = email_or_username.strip()
+    user = db.query(User).filter(
+        (User.email.ilike(identifier)) | (User.username.ilike(identifier))
+    ).first()
+
+    if not user:
+        return {
+            "message": "If account exists, OTP has been sent to the registered email address.",
+            "email_masked": "u***@example.com",
+            "otp_code": None
+        }
+
+    # Invalidate previous unexpired OTPs
+    db.query(PasswordResetOTP).filter(
+        PasswordResetOTP.user_id == user.id,
+        PasswordResetOTP.is_used == False
+    ).update({"is_used": True})
+
+    # Generate 6-digit random code
+    otp_code = f"{random.randint(100000, 999999)}"
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+    otp_record = PasswordResetOTP(
+        user_id=user.id,
+        email=user.email,
+        otp_code=otp_code,
+        expires_at=expires_at,
+        is_used=False
+    )
+    db.add(otp_record)
+    db.commit()
+
+    log_activity(
+        db,
+        action=AuditAction.PASSWORD_CHANGED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"User:{user.id}",
+        details=f"Requested password reset OTP (Expires in 10 mins)",
+        success=True,
+        ip_address=ip_address
+    )
+
+    email_parts = user.email.split("@")
+    name_part = email_parts[0]
+    domain_part = email_parts[1]
+    if len(name_part) <= 2:
+        masked_name = name_part[0] + "*"
+    else:
+        masked_name = name_part[:2] + "*" * (len(name_part) - 2)
+    email_masked = f"{masked_name}@{domain_part}"
+    
+    from app.services.email_service import send_otp_email
+    email_sent = send_otp_email(user.email, otp_code)
+
+    return {
+        "message": f"OTP sent to official mail {email_masked}",
+        "email": user.email,
+        "email_masked": email_masked,
+        "email_sent": email_sent
+    }
+
+def reset_password_with_otp(db: Session, reset_in: ResetPasswordOTPVerify, ip_address: str = None) -> dict:
+    identifier = reset_in.email_or_username.strip()
+    user = db.query(User).filter(
+        (User.email.ilike(identifier)) | (User.username.ilike(identifier))
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User account not found")
+
+    if reset_in.new_password != reset_in.confirm_new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
+
+    is_strong, pwd_err = validate_password_strength(reset_in.new_password)
+    if not is_strong:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Weak password: {pwd_err}")
+
+    now = datetime.utcnow()
+    otp_record = db.query(PasswordResetOTP).filter(
+        PasswordResetOTP.user_id == user.id,
+        PasswordResetOTP.otp_code == reset_in.otp_code.strip(),
+        PasswordResetOTP.is_used == False,
+        PasswordResetOTP.expires_at > now
+    ).order_by(PasswordResetOTP.created_at.desc()).first()
+
+    if not otp_record:
+        log_activity(
+            db,
+            action=AuditAction.PASSWORD_CHANGED,
+            user_id=user.id,
+            user_email=user.email,
+            details="Invalid or expired OTP entered during password reset",
+            success=False,
+            ip_address=ip_address
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP code")
+
+    user.hashed_password = get_password_hash(reset_in.new_password)
+    user.last_password_change_at = datetime.utcnow()
+    otp_record.is_used = True
+    db.commit()
+
+    log_activity(
+        db,
+        action=AuditAction.PASSWORD_CHANGED,
+        user_id=user.id,
+        user_email=user.email,
+        resource=f"User:{user.id}",
+        details="Password successfully reset via OTP verification",
+        success=True,
+        ip_address=ip_address
+    )
+
+    return {"message": "Password reset successful! You can now log in with your new password."}
+

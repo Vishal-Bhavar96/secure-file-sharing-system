@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.schemas.user import UserRegister, UserLogin, Token, UserOut
-from app.services.auth_service import register_user, authenticate_user
+from app.schemas.user import (
+    UserRegister, UserLogin, Token, UserOut,
+    ForgotPasswordRequest, ResetPasswordOTPVerify
+)
+from app.services.auth_service import (
+    register_user, authenticate_user,
+    request_password_reset_otp, reset_password_with_otp
+)
 from app.security.jwt import get_current_user
 from app.models.user import User
 
@@ -22,6 +28,16 @@ def login(login_in: UserLogin, request: Request, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": UserOut.model_validate(user)
     }
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else None
+    return request_password_reset_otp(db, req.email_or_username, ip_address=ip)
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordOTPVerify, request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else None
+    return reset_password_with_otp(db, req, ip_address=ip)
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):

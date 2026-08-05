@@ -20,6 +20,8 @@ def migrate_schema():
                     conn.execute(text("ALTER TABLE users ADD COLUMN items_per_page INTEGER DEFAULT 10"))
                 if "last_login_at" not in columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at DATETIME"))
+                if "last_seen_at" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
                 if "last_password_change_at" not in columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN last_password_change_at DATETIME"))
                 conn.commit()

@@ -18,6 +18,32 @@ from app.services.user_service import (
 
 router = APIRouter(prefix="/users", tags=["Users Profile & Settings"])
 
+from datetime import datetime
+
+def is_user_online(user: User) -> bool:
+    if not user.last_seen_at:
+        return False
+    return (datetime.utcnow() - user.last_seen_at).total_seconds() < 120
+
+def compute_last_seen_text(user: User) -> str:
+    if is_user_online(user):
+        return "Active now"
+    dt = user.last_seen_at or user.last_login_at
+    if not dt:
+        return "Offline"
+    diff = (datetime.utcnow() - dt).total_seconds()
+    if diff < 120:
+        return "Active now"
+    elif diff < 3600:
+        mins = max(1, int(diff // 60))
+        return f"Active {mins}m ago"
+    elif diff < 86400:
+        hours = int(diff // 3600)
+        return f"Active {hours}h ago"
+    else:
+        days = int(diff // 86400)
+        return f"Active {days}d ago"
+
 def build_user_out(user: User) -> UserOut:
     has_avatar = bool(user.avatar_path and os.path.exists(user.avatar_path))
     return UserOut(
@@ -33,11 +59,33 @@ def build_user_out(user: User) -> UserOut:
         default_file_sort=user.default_file_sort or "date_desc",
         items_per_page=user.items_per_page or 10,
         last_login_at=user.last_login_at,
+        last_seen_at=user.last_seen_at,
+        is_online=is_user_online(user),
+        last_seen_text=compute_last_seen_text(user),
         last_password_change_at=user.last_password_change_at
     )
 
+@router.post("/me/heartbeat")
+def user_heartbeat(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.last_seen_at = datetime.utcnow()
+    db.commit()
+    return {
+        "status": "online",
+        "is_online": True,
+        "last_seen_text": "Active now",
+        "last_seen_at": current_user.last_seen_at
+    }
+
 @router.get("/me", response_model=UserOut)
-def get_current_user_profile(current_user: User = Depends(get_current_user)):
+def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.last_seen_at = datetime.utcnow()
+    db.commit()
     return build_user_out(current_user)
 
 @router.put("/me/profile", response_model=UserOut)
@@ -138,3 +186,29 @@ def revoke_other_user_sessions(
     ip = request.client.host if request.client else None
     count = revoke_other_sessions(db, user=current_user, current_token=token, ip_address=ip)
     return {"message": f"Successfully revoked {count} other active session(s)", "count": count}
+
+@router.get("/search")
+def search_users(
+    q: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = q.strip()
+    if not query:
+        return []
+    users = db.query(User).filter(
+        User.id != current_user.id,
+        User.is_active == True,
+        (User.email.ilike(f"%{query}%")) | (User.username.ilike(f"%{query}%")) | (User.name.ilike(f"%{query}%"))
+    ).limit(10).all()
+    return [{
+        "id": u.id,
+        "name": u.name,
+        "email": u.email,
+        "username": u.username,
+        "has_avatar": bool(u.avatar_path and os.path.exists(u.avatar_path)),
+        "is_online": is_user_online(u),
+        "last_seen_text": compute_last_seen_text(u)
+    } for u in users]
+
+

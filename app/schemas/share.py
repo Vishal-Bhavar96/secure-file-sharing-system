@@ -41,9 +41,13 @@ class ShareOut(BaseModel):
     owner_id: int
     shared_by_id: int
     shared_by_email: str
+    shared_by_online: bool = False
+    shared_by_last_seen: str = "Offline"
     shared_user_id: Optional[int] = None
     shared_with_id: Optional[int] = None
     shared_with_email: Optional[str] = ""
+    shared_with_online: bool = False
+    shared_with_last_seen: str = "Offline"
     permission: SharePermission
     share_token: Optional[str] = None
     share_url: Optional[str] = None

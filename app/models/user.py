@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database.session import Base
@@ -24,6 +24,7 @@ class User(Base):
     default_file_sort = Column(String(50), default="date_desc", nullable=False)
     items_per_page = Column(Integer, default=10, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True, default=datetime.utcnow)
     last_password_change_at = Column(DateTime, nullable=True)
 
     files = relationship("File", back_populates="owner", cascade="all, delete-orphan")
@@ -32,3 +33,17 @@ class User(Base):
     shares_received = relationship("FileShare", foreign_keys="FileShare.shared_with_id", back_populates="shared_with")
     audit_logs = relationship("AuditLog", back_populates="user")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+class PasswordResetOTP(Base):
+    __tablename__ = "password_reset_otps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    email = Column(String(150), nullable=False, index=True)
+    otp_code = Column(String(6), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User")
+

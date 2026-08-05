@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./secure_sharing.db"
 
+    # SMTP / Email Service Settings
+    SMTP_SERVER: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    EMAILS_FROM_EMAIL: str = Field(default="")
+    EMAILS_FROM_NAME: str = Field(default="SecureShare Vault")
+
     class Config:
         env_file = ".env"
         extra = "ignore"

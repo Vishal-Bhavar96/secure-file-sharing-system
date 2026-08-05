@@ -60,6 +60,9 @@ class UserOut(BaseModel):
     default_file_sort: str = "date_desc"
     items_per_page: int = 10
     last_login_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+    is_online: bool = False
+    last_seen_text: str = "Offline"
     last_password_change_at: Optional[datetime] = None
 
 class UserProfileUpdate(BaseModel):
@@ -105,5 +108,14 @@ class UserSessionOut(BaseModel):
     created_at: datetime
     last_activity_at: datetime
     is_current: bool = False
+
+class ForgotPasswordRequest(BaseModel):
+    email_or_username: str = Field(..., min_length=1)
+
+class ResetPasswordOTPVerify(BaseModel):
+    email_or_username: str = Field(..., min_length=1)
+    otp_code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=100)
+    confirm_new_password: str = Field(..., min_length=8, max_length=100)
 
 Token.model_rebuild()

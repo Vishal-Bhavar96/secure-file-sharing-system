@@ -34,8 +34,33 @@ function showToast(message, type = 'info') {
     }, 4000);
 }
 
+// Heartbeat & Online Status Loop
+let heartbeatInterval = null;
+
+function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    sendHeartbeat();
+    heartbeatInterval = setInterval(sendHeartbeat, 20000);
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+}
+
+async function sendHeartbeat() {
+    if (!authToken) return;
+    try {
+        await fetch(`${API_BASE}/users/me/heartbeat`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+    } catch (e) {}
+}
+
 // Views Navigation
 function showAuthView() {
+    stopHeartbeat();
     document.getElementById('view-auth').classList.add('active');
     document.getElementById('view-dashboard').classList.remove('active');
     updateNavActions();
@@ -53,6 +78,7 @@ function showDashboardView() {
 
     updateUserHeaderUI();
     loadUserFiles();
+    startHeartbeat();
 }
 
 function updateNavActions() {
@@ -456,22 +482,102 @@ async function deleteFile(id) {
 }
 
 // Sharing Operations
-function setExpiryPreset(hours) {
-    const input = document.getElementById('share-expiry');
-    if (input) input.value = hours !== null ? hours : '';
+let lastGeneratedShareUrl = '';
+
+function setExpiryPreset(hours, btn) {
+    document.querySelectorAll('.expiry-preset-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('share-expiry-hours').value = hours !== null ? hours : '';
+    const customContainer = document.getElementById('share-custom-date-container');
+    if (customContainer) customContainer.style.display = 'none';
 }
 
-function setDownloadPreset(count) {
-    const input = document.getElementById('share-max-downloads');
-    if (input) input.value = count !== null ? count : '';
+function toggleCustomDateExpiry(btn) {
+    document.querySelectorAll('.expiry-preset-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('share-expiry-hours').value = '';
+    const customContainer = document.getElementById('share-custom-date-container');
+    if (customContainer) customContainer.style.display = 'block';
+}
+
+function setDownloadPreset(count, btn) {
+    document.querySelectorAll('.download-preset-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('share-max-downloads').value = count !== null ? count : '';
+}
+
+let userSearchTimer;
+function handleUserSearchInput(val) {
+    clearTimeout(userSearchTimer);
+    const resultsBox = document.getElementById('share-user-results');
+    if (!resultsBox) return;
+    
+    if (!val || val.trim().length < 1) {
+        resultsBox.style.display = 'none';
+        return;
+    }
+
+    userSearchTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(val)}`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!res.ok) return;
+            const users = await res.json();
+            if (!users || users.length === 0) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            resultsBox.innerHTML = users.map(u => {
+                const isOnline = u.is_online;
+                const statusDotClass = isOnline ? 'online' : 'offline';
+                const statusText = u.last_seen_text || (isOnline ? 'Active now' : 'Offline');
+                const pillClass = isOnline ? 'online' : 'offline';
+                const initials = getInitials(u.name);
+
+                return `
+                    <div style="padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between;" 
+                         onclick="selectUserSearchItem('${escapeHtml(u.email)}')">
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <div class="avatar-wrapper">
+                                <div class="avatar-circle" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    <span>${escapeHtml(initials)}</span>
+                                </div>
+                                <span class="status-dot ${statusDotClass}" title="${escapeHtml(statusText)}"></span>
+                            </div>
+                            <div>
+                                <strong style="display: block; line-height: 1.2; color: var(--text-primary);">${escapeHtml(u.name)}</strong>
+                                <span class="subtext" style="font-size: 0.75rem;">${escapeHtml(u.email)}</span>
+                            </div>
+                        </div>
+                        <span class="online-pill ${pillClass}">
+                            <span class="dot"></span> ${escapeHtml(statusText)}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+            resultsBox.style.display = 'block';
+        } catch (e) {
+            resultsBox.style.display = 'none';
+        }
+    }, 200);
+}
+
+function selectUserSearchItem(email) {
+    document.getElementById('share-recipient').value = email;
+    document.getElementById('share-user-results').style.display = 'none';
 }
 
 function openShareModal(id, name) {
     document.getElementById('share-file-id').value = id;
     document.getElementById('share-file-name').textContent = name;
     document.getElementById('share-recipient').value = '';
-    document.getElementById('share-expiry').value = '';
-    document.getElementById('share-max-downloads').value = '';
+    document.getElementById('share-permission').value = 'DOWNLOAD';
+    setExpiryPreset(null, document.querySelector('.expiry-preset-btn.active'));
+    setDownloadPreset(null, document.querySelector('.download-preset-btn.active'));
+    document.getElementById('share-password').value = '';
+    document.getElementById('share-result-container').style.display = 'none';
     document.getElementById('modal-share').classList.add('active');
 }
 
@@ -479,13 +585,16 @@ async function submitShareForm() {
     const file_id = parseInt(document.getElementById('share-file-id').value);
     const target_user_identifier = document.getElementById('share-recipient').value.trim();
     const permission = document.getElementById('share-permission').value;
-    const expiry_hours = document.getElementById('share-expiry').value ? parseInt(document.getElementById('share-expiry').value) : null;
-    const max_downloads = document.getElementById('share-max-downloads').value ? parseInt(document.getElementById('share-max-downloads').value) : null;
-
-    if (!target_user_identifier) {
-        showToast('Please enter a recipient email or username', 'error');
-        return;
+    
+    let expiry_hours = document.getElementById('share-expiry-hours').value ? parseInt(document.getElementById('share-expiry-hours').value) : null;
+    let expiry_date = null;
+    const customDateVal = document.getElementById('share-custom-date-input').value;
+    if (customDateVal) {
+        expiry_date = new Date(customDateVal).toISOString();
     }
+
+    const max_downloads = document.getElementById('share-max-downloads').value ? parseInt(document.getElementById('share-max-downloads').value) : null;
+    const password = document.getElementById('share-password').value || null;
 
     try {
         const res = await fetch(`${API_BASE}/shares`, {
@@ -494,25 +603,72 @@ async function submitShareForm() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             },
-            body: JSON.stringify({ file_id, target_user_identifier, permission, expiry_hours, max_downloads })
+            body: JSON.stringify({
+                file_id,
+                target_user_identifier: target_user_identifier || null,
+                permission,
+                expiry_hours,
+                expiry_date,
+                max_downloads,
+                password
+            })
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Share creation failed');
 
+        lastGeneratedShareUrl = data.share_url || `${window.location.origin}/#share/${data.share_token}`;
+        document.getElementById('share-generated-url').value = lastGeneratedShareUrl;
+        document.getElementById('share-result-container').style.display = 'block';
+
         let validityMsg = 'File shared successfully!';
         if (expiry_hours) validityMsg += ` Valid for ${expiry_hours}h.`;
-        if (max_downloads) validityMsg += ` Limited to ${max_downloads} downloads.`;
+        if (max_downloads) validityMsg += ` Limited to ${max_downloads} download(s).`;
 
         showToast(validityMsg, 'success');
-        closeModal('modal-share');
         loadSharedFiles();
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
-// Shared With Me Tab
+function copyShareGeneratedLink() {
+    const urlInput = document.getElementById('share-generated-url');
+    if (urlInput && urlInput.value) {
+        navigator.clipboard.writeText(urlInput.value);
+        showToast('Share link copied to clipboard!', 'success');
+    }
+}
+
+function showShareQRCode() {
+    if (lastGeneratedShareUrl) {
+        openQRCodeModal(lastGeneratedShareUrl);
+    }
+}
+
+function openQRCodeModal(url) {
+    const display = document.getElementById('qr-code-display');
+    const textLabel = document.getElementById('qr-code-url-text');
+    if (!display) return;
+
+    display.innerHTML = '';
+    textLabel.textContent = url;
+    
+    // Quick SVG QR renderer or Google Chart API fallback if needed
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    display.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" style="width: 200px; height: 200px; display: block;" onerror="this.onerror=null; this.src='https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(url)}';">`;
+    document.getElementById('modal-qr-code').classList.add('active');
+}
+
+function copyQRShareLink() {
+    const textLabel = document.getElementById('qr-code-url-text');
+    if (textLabel && textLabel.textContent) {
+        navigator.clipboard.writeText(textLabel.textContent);
+        showToast('Link copied to clipboard!', 'success');
+    }
+}
+
+// Shared Files Management
 async function loadSharedFiles() {
     loadReceivedShares();
     loadCreatedShares();
@@ -547,11 +703,15 @@ async function loadReceivedShares() {
             const safeSharedBy = escapeHtml(s.shared_by_email || 'Unknown');
             const jsEscapedFilename = (s.filename || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+            const isOnline = s.shared_by_online;
+            const statusText = s.shared_by_last_seen || (isOnline ? 'Active now' : 'Offline');
+            const pillClass = isOnline ? 'online' : 'offline';
+            const userStatusBadge = `<span class="online-pill ${pillClass}" style="margin-left: 0.35rem; vertical-align: middle;"><span class="dot"></span> ${escapeHtml(statusText)}</span>`;
+
             const isExpired = s.is_expired;
             const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
             const canDownload = !isExpired && !isLimitReached && s.permission !== 'VIEW';
 
-            // Calculate human-readable validity text
             let validityBadge = '<span class="badge badge-success"><i class="fa-solid fa-infinity"></i> Never Expires</span>';
             if (s.expiry_at) {
                 const expiryDate = new Date(s.expiry_at);
@@ -581,7 +741,7 @@ async function loadReceivedShares() {
             return `
                 <tr>
                     <td><strong><i class="fa-solid fa-file-circle-check text-primary"></i> ${safeFilename}</strong></td>
-                    <td>${safeSharedBy}</td>
+                    <td>${safeSharedBy} ${userStatusBadge}</td>
                     <td><span class="badge">${escapeHtml(s.permission)}</span></td>
                     <td>${validityBadge}</td>
                     <td>${downloadStatus}</td>
@@ -601,7 +761,7 @@ async function loadReceivedShares() {
 async function loadCreatedShares() {
     const tbody = document.getElementById('created-shares-table-body');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center">Loading sent shares...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center">Loading sent shares...</td></tr>`;
 
     try {
         const res = await fetch(`${API_BASE}/shares/created`, {
@@ -621,48 +781,145 @@ async function loadCreatedShares() {
         const shares = await res.json();
 
         if (!shares || shares.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">You have not shared any files with others yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center subtext">You have not shared any files with others yet.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = shares.map(s => {
             const safeFilename = escapeHtml(s.filename || 'Shared File');
-            const safeRecipient = escapeHtml(s.shared_with_email || 'Unknown User');
+            const safeRecipient = escapeHtml(s.shared_with_email || 'Public Link');
+
+            const isOnline = s.shared_with_online;
+            const statusText = s.shared_with_last_seen || (isOnline ? 'Active now' : 'Offline');
+            const pillClass = isOnline ? 'online' : 'offline';
+            const recipientStatusBadge = s.shared_with_email ? `<span class="online-pill ${pillClass}" style="margin-left: 0.35rem; vertical-align: middle;"><span class="dot"></span> ${escapeHtml(statusText)}</span>` : '';
+
             const isRevoked = s.is_revoked;
             const isExpired = s.is_expired;
             const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
 
-            let validityBadge = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>';
+            let statusBadge = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>';
             if (isRevoked) {
-                validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Revoked</span>`;
+                statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Revoked</span>`;
             } else if (isExpired) {
-                validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
+                statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
             } else if (isLimitReached) {
-                validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-ban"></i> Limit Reached</span>`;
-            } else if (s.expiry_at) {
-                const expiryDate = new Date(s.expiry_at);
-                const diffMs = expiryDate - new Date();
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                validityBadge = `<span class="badge badge-success"><i class="fa-solid fa-clock"></i> Expires in ${diffHours}h</span>`;
+                statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-ban"></i> Limit Reached</span>`;
             }
+
+            let expiryText = 'Never';
+            if (s.expiry_at) {
+                const diffMs = new Date(s.expiry_at) - new Date();
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                expiryText = isExpired ? 'Expired' : `${diffHours}h left`;
+            }
+
+            const shareUrl = s.share_url || `${window.location.origin}/#share/${s.share_token}`;
 
             return `
                 <tr>
                     <td><strong><i class="fa-solid fa-share-nodes text-primary"></i> ${safeFilename}</strong></td>
-                    <td>${safeRecipient}</td>
+                    <td>${safeRecipient} ${recipientStatusBadge}</td>
                     <td><span class="badge">${escapeHtml(s.permission)}</span></td>
-                    <td>${validityBadge}</td>
+                    <td>${expiryText}</td>
                     <td>${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}</td>
+                    <td>${statusBadge}</td>
                     <td>
-                        ${!isRevoked ? 
-                            `<button class="btn btn-sm btn-danger" onclick="revokeShareAccess(${s.id})"><i class="fa-solid fa-user-xmark"></i> Revoke</button>` : 
-                            `<span class="subtext">Revoked</span>`}
+                        <div class="demo-btn-group">
+                            <button class="btn btn-sm btn-outline" onclick="openShareDetailsModal(${s.id})" title="View Details & Edit Controls"><i class="fa-solid fa-gear"></i></button>
+                            <button class="btn btn-sm btn-outline" onclick="copyDirectShareUrl('${escapeHtml(shareUrl)}')" title="Copy Link"><i class="fa-solid fa-copy"></i></button>
+                            ${!isRevoked ? 
+                                `<button class="btn btn-sm btn-danger" onclick="revokeShareAccess(${s.id})" title="Revoke Access"><i class="fa-solid fa-user-xmark"></i></button>` : 
+                                `<span class="subtext" style="font-size: 0.75rem;">Revoked</span>`}
+                        </div>
                     </td>
                 </tr>
             `;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
+
+function copyDirectShareUrl(url) {
+    navigator.clipboard.writeText(url);
+    showToast('Share link copied to clipboard!', 'success');
+}
+
+async function openShareDetailsModal(shareId) {
+    try {
+        const res = await fetch(`${API_BASE}/shares/${shareId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to load share details');
+        const data = await res.json();
+
+        document.getElementById('details-share-id').value = data.id;
+        document.getElementById('details-filename').querySelector('span').textContent = data.filename;
+        document.getElementById('details-recipient-info').textContent = `Shared with: ${data.shared_with_email || 'Public Link'}`;
+        document.getElementById('details-permission-select').value = data.permission;
+        document.getElementById('details-limit-select').value = data.max_downloads !== null ? data.max_downloads.toString() : '';
+        document.getElementById('details-expiry-hours').value = '';
+        document.getElementById('details-password-input').value = '';
+        document.getElementById('details-link-input').value = data.share_url || `${window.location.origin}/#share/${data.share_token}`;
+
+        document.getElementById('modal-share-details').classList.add('active');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function submitUpdateShareDetails() {
+    const shareId = document.getElementById('details-share-id').value;
+    const permission = document.getElementById('details-permission-select').value;
+    const max_downloads_val = document.getElementById('details-limit-select').value;
+    const max_downloads = max_downloads_val ? parseInt(max_downloads_val) : null;
+    const expiry_hours_val = document.getElementById('details-expiry-hours').value;
+    const expiry_hours = expiry_hours_val ? parseInt(expiry_hours_val) : null;
+    const password = document.getElementById('details-password-input').value || null;
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/${shareId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ permission, max_downloads, expiry_hours, password })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Update failed');
+        }
+
+        showToast('Share controls updated successfully!', 'success');
+        closeModal('modal-share-details');
+        loadSharedFiles();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function submitRevokeFromDetails() {
+    const shareId = document.getElementById('details-share-id').value;
+    closeModal('modal-share-details');
+    await revokeShareAccess(shareId);
+}
+
+function copyDetailsLink() {
+    const linkInput = document.getElementById('details-link-input');
+    if (linkInput && linkInput.value) {
+        navigator.clipboard.writeText(linkInput.value);
+        showToast('Share link copied to clipboard!', 'success');
+    }
+}
+
+function showDetailsQRCode() {
+    const linkInput = document.getElementById('details-link-input');
+    if (linkInput && linkInput.value) {
+        openQRCodeModal(linkInput.value);
     }
 }
 
@@ -681,6 +938,151 @@ async function revokeShareAccess(shareId) {
         showToast(err.message, 'error');
     }
 }
+
+async function downloadSharedFile(shareId, filename) {
+    showToast(`Validating permissions & downloading '${filename}'...`, 'info');
+    try {
+        const res = await fetch(`${API_BASE}/shares/${shareId}/download`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || 'Shared download failed');
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('Shared file downloaded and decrypted!', 'success');
+        loadSharedFiles();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// Token Link Access Handling (/#share/{share_token})
+function checkShareTokenHash() {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#share/')) {
+        const token = hash.replace('#share/', '').trim();
+        if (token) {
+            openTokenShareView(token);
+        }
+    }
+}
+
+async function openTokenShareView(token) {
+    const modalBody = document.getElementById('token-share-body');
+    if (!modalBody) return;
+
+    modalBody.innerHTML = `<div class="text-center" style="padding: 2rem;"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p style="margin-top: 1rem;">Validating secure share link...</p></div>`;
+    document.getElementById('modal-token-share').classList.add('active');
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/token/${token}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            if (res.status === 401 && data.detail === 'Incorrect password for shared file') {
+                renderPasswordPromptForToken(token);
+                return;
+            }
+            renderAccessDeniedForToken(data.detail || 'Access Denied');
+            return;
+        }
+
+        renderTokenShareContent(token, data);
+    } catch (err) {
+        renderAccessDeniedForToken(err.message || 'Access Denied');
+    }
+}
+
+function renderPasswordPromptForToken(token) {
+    const modalBody = document.getElementById('token-share-body');
+    modalBody.innerHTML = `
+        <div style="text-align: center; padding: 1rem;">
+            <i class="fa-solid fa-lock text-primary fa-3x" style="margin-bottom: 1rem;"></i>
+            <h4>Password Protected Shared File</h4>
+            <p class="subtext" style="margin-bottom: 1.5rem;">This share link requires a password set by the owner.</p>
+            <form onsubmit="submitTokenPasswordForm(event, '${escapeHtml(token)}')">
+                <div class="form-group" style="text-align: left;">
+                    <label>Password</label>
+                    <input type="password" id="token-pwd-input" required placeholder="Enter file password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-key"></i> Unlock Shared File</button>
+            </form>
+        </div>
+    `;
+}
+
+async function submitTokenPasswordForm(e, token) {
+    e.preventDefault();
+    const pwd = document.getElementById('token-pwd-input').value;
+    try {
+        const res = await fetch(`${API_BASE}/shares/token/${token}/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Password verification failed');
+
+        renderTokenShareContent(token, data, pwd);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function renderTokenShareContent(token, shareData, password = null) {
+    const modalBody = document.getElementById('token-share-body');
+    const safeFilename = escapeHtml(shareData.filename);
+    const safeSharedBy = escapeHtml(shareData.shared_by_email);
+    const pwdQuery = password ? `?password=${encodeURIComponent(password)}` : '';
+
+    const canDownload = shareData.permission !== 'VIEW' && !shareData.is_expired;
+
+    modalBody.innerHTML = `
+        <div style="padding: 0.5rem;">
+            <h3 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-file-circle-check text-primary"></i> ${safeFilename}</h3>
+            <p class="subtext" style="margin-bottom: 1rem;">Shared by <strong>${safeSharedBy}</strong></p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.85rem;">
+                <div><strong>Permission:</strong> <span class="badge">${escapeHtml(shareData.permission)}</span></div>
+                <div><strong>Status:</strong> <span class="badge badge-success">Active</span></div>
+                <div><strong>Downloads:</strong> ${shareData.download_count} / ${shareData.max_downloads !== null ? shareData.max_downloads : 'Unlimited'}</div>
+                <div><strong>Expiration:</strong> ${shareData.expiry_at ? new Date(shareData.expiry_at).toLocaleString() : 'Never'}</div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                ${canDownload ? 
+                    `<a href="${API_BASE}/shares/token/${token}/download${pwdQuery}" class="btn btn-primary" target="_blank"><i class="fa-solid fa-download"></i> Download File</a>` : 
+                    `<button class="btn btn-outline" disabled><i class="fa-solid fa-eye"></i> View Only Access</button>`}
+            </div>
+        </div>
+    `;
+}
+
+function renderAccessDeniedForToken(reason) {
+    const modalBody = document.getElementById('token-share-body');
+    modalBody.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <i class="fa-solid fa-circle-exclamation text-danger fa-3x" style="margin-bottom: 1rem;"></i>
+            <h3 class="text-danger">Access Denied</h3>
+            <p style="margin-top: 0.5rem; color: var(--text-muted);">${escapeHtml(reason)}</p>
+            <button class="btn btn-outline btn-sm" style="margin-top: 1.5rem;" onclick="closeModal('modal-token-share')">Close</button>
+        </div>
+    `;
+}
+
+window.addEventListener('hashchange', checkShareTokenHash);
+window.addEventListener('DOMContentLoaded', checkShareTokenHash);
+
 
 async function downloadSharedFile(shareId, filename) {
     showToast(`Validating permissions & downloading '${filename}'...`, 'info');
@@ -1065,6 +1467,26 @@ function updateUserHeaderUI() {
     if (dropdownName) dropdownName.textContent = currentUser.name;
     if (dropdownEmail) dropdownEmail.textContent = currentUser.email;
     if (dropdownRole) dropdownRole.textContent = currentUser.role;
+
+    // Update Online Status Dot & Pills
+    const isOnline = currentUser.is_online !== undefined ? currentUser.is_online : true;
+    const statusText = currentUser.last_seen_text || (isOnline ? 'Active now' : 'Offline');
+    
+    ['user-header-status-dot', 'dropdown-header-status-dot'].forEach(id => {
+        const dot = document.getElementById(id);
+        if (dot) {
+            dot.className = `status-dot ${isOnline ? 'online' : 'offline'}`;
+            dot.title = statusText;
+        }
+    });
+
+    ['user-header-status-badge', 'dropdown-user-status'].forEach(id => {
+        const pill = document.getElementById(id);
+        if (pill) {
+            pill.className = `online-pill ${isOnline ? 'online' : 'offline'}`;
+            pill.innerHTML = `<span class="dot"></span> ${escapeHtml(statusText)}`;
+        }
+    });
 
     const initials = getInitials(currentUser.name);
 
@@ -1607,4 +2029,95 @@ function formatBytes(bytes, decimals = 2) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+// Forgot Password OTP Flow Functions
+function openForgotPasswordModal() {
+    document.getElementById('forgot-email-input').value = '';
+    document.getElementById('forgot-otp-input').value = '';
+    document.getElementById('forgot-new-password').value = '';
+    document.getElementById('forgot-confirm-password').value = '';
+    document.getElementById('forgot-step-1').style.display = 'block';
+    document.getElementById('forgot-step-2').style.display = 'none';
+    document.getElementById('modal-forgot-password').classList.add('active');
+}
+
+function backToStep1() {
+    document.getElementById('forgot-step-1').style.display = 'block';
+    document.getElementById('forgot-step-2').style.display = 'none';
+}
+
+async function submitForgotPasswordRequest(e) {
+    e.preventDefault();
+    const emailOrUser = document.getElementById('forgot-email-input').value.trim();
+    if (!emailOrUser) return;
+
+    const btn = document.getElementById('btn-send-otp');
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending OTP...`;
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email_or_username: emailOrUser })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to send OTP code');
+
+        document.getElementById('forgot-masked-email-text').textContent = data.message || `OTP sent to official email ${data.email_masked}`;
+        document.getElementById('forgot-step-1').style.display = 'none';
+        document.getElementById('forgot-step-2').style.display = 'block';
+        showToast(`OTP Code sent to official email ${data.email_masked || ''}! Check your inbox.`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Send OTP Code`;
+    }
+}
+
+async function submitResetPasswordForm(e) {
+    e.preventDefault();
+    const email_or_username = document.getElementById('forgot-email-input').value.trim();
+    const otp_code = document.getElementById('forgot-otp-input').value.trim();
+    const new_password = document.getElementById('forgot-new-password').value;
+    const confirm_new_password = document.getElementById('forgot-confirm-password').value;
+
+    if (new_password !== confirm_new_password) {
+        showToast('New passwords do not match!', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email_or_username,
+                otp_code,
+                new_password,
+                confirm_new_password
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to reset password');
+
+        closeModal('modal-forgot-password');
+        showToast('Password reset successfully! Logging you in...', 'success');
+
+        // Automatically log in user with new credentials
+        document.getElementById('login-email').value = email_or_username;
+        document.getElementById('login-password').value = new_password;
+        
+        // Trigger login submit
+        const loginForm = document.getElementById('form-login');
+        if (loginForm) {
+            loginForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
