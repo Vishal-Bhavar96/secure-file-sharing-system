@@ -102,6 +102,42 @@ def share_file(
 
     return share_out
 
+@router.post("/{share_id}/resend-email")
+def resend_share_email(
+    share_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    share = db.query(FileShare).filter(FileShare.id == share_id).first()
+    if not share:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share record not found")
+
+    if share.shared_by_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the file owner can resend share notifications")
+
+    target_email = share.shared_with.email if share.shared_with else None
+    if not target_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No recipient email address assigned to this share link")
+
+    share_out = build_share_out(share, request)
+    from app.services.email_service import send_file_share_email
+    email_sent = send_file_share_email(
+        to_email=target_email,
+        sender_name=current_user.name,
+        sender_email=current_user.email,
+        filename=share.file.original_name if share.file else "Shared File",
+        share_url=share_out.share_url,
+        permission=share.permission.value,
+        expiry_at=share.expiry_at,
+        has_password=bool(share.password_hash)
+    )
+
+    if email_sent:
+        return {"message": f"Email notification successfully sent to {target_email}", "email_sent": True}
+    else:
+        return {"message": f"Share notification logged for {target_email}. Configure SMTP in .env for real inbox delivery.", "email_sent": False}
+
 @router.get("/created", response_model=List[ShareOut])
 def get_shares_created_by_me(
     request: Request,

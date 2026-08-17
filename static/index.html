@@ -544,7 +544,10 @@
                     </div>
                 </div>
                 <div class="modal-footer" style="display: flex; justify-content: space-between;">
-                    <button class="btn btn-danger" onclick="submitRevokeFromDetails()"><i class="fa-solid fa-user-xmark"></i> Revoke Access</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-danger" onclick="submitRevokeFromDetails()"><i class="fa-solid fa-user-xmark"></i> Revoke Access</button>
+                        <button type="button" class="btn btn-outline" id="btn-resend-share-email" onclick="resendShareEmailFromDetails()"><i class="fa-solid fa-paper-plane"></i> Resend Email</button>
+                    </div>
                     <div>
                         <button class="btn btn-outline" onclick="closeModal('modal-share-details')">Cancel</button>
                         <button class="btn btn-primary" onclick="submitUpdateShareDetails()"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>

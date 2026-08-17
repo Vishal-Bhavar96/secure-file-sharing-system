@@ -1003,6 +1003,36 @@ async function openTokenShareView(token) {
     }
 }
 
+async function resendShareEmailFromDetails() {
+    const shareId = document.getElementById('details-share-id').value;
+    if (!shareId) return;
+
+    const btn = document.getElementById('btn-resend-share-email');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending...`;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/${shareId}/resend-email`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to resend email');
+
+        showToast(data.message || 'Share email notification sent!', 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Resend Email`;
+        }
+    }
+}
+
 function renderPasswordPromptForToken(token) {
     const modalBody = document.getElementById('token-share-body');
     modalBody.innerHTML = `
