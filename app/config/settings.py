@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Secure File-Sharing System"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    
+    PUBLIC_APP_URL: str = Field(default="http://localhost:8000")
     SECRET_KEY: str = Field(default="dev_secret_key_change_in_production_1234567890!")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours

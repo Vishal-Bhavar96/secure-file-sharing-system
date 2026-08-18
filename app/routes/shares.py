@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 import qrcode
 import qrcode.image.svg
 
+from app.config.settings import settings
 from app.database.session import get_db
 from app.models.user import User
 from app.models.share import FileShare, SharePermission
+from app.models.audit_log import AuditAction
 from app.schemas.share import ShareCreateRequest, ShareUpdateRequest, ShareOut, ShareTokenVerifyRequest
 from app.security.jwt import get_current_user
 from app.services.share_service import (
@@ -17,7 +19,7 @@ from app.services.share_service import (
     increment_share_download, update_file_share, revoke_file_share
 )
 from app.services.file_service import download_and_decrypt_file
-
+from app.services.audit_service import log_activity
 from app.routes.users import is_user_online, compute_last_seen_text
 
 router = APIRouter(prefix="/shares", tags=["File Sharing"])
@@ -34,9 +36,11 @@ def build_share_out(s: FileShare, request: Optional[Request] = None) -> ShareOut
     shared_with_online = is_user_online(s.shared_with) if s.shared_with else False
     shared_with_last_seen = compute_last_seen_text(s.shared_with) if s.shared_with else "Offline"
 
-    # Generate share URL
-    host_url = str(request.base_url).rstrip('/') if request else "http://localhost:8000"
-    share_url = f"{host_url}/#share/{s.share_token}" if s.share_token else None
+    # Construct public share URL using PUBLIC_APP_URL configuration
+    base_url = settings.PUBLIC_APP_URL.rstrip('/') if getattr(settings, 'PUBLIC_APP_URL', None) else (str(request.base_url).rstrip('/') if request else "http://localhost:8000")
+    share_url = f"{base_url}/#share/{s.share_token}" if s.share_token else None
+
+    recipient_email = s.recipient_email or shared_with_email
 
     return ShareOut(
         id=s.id,
@@ -52,6 +56,7 @@ def build_share_out(s: FileShare, request: Optional[Request] = None) -> ShareOut
         shared_with_email=shared_with_email,
         shared_with_online=shared_with_online,
         shared_with_last_seen=shared_with_last_seen,
+        recipient_email=recipient_email,
         permission=s.permission,
         share_token=s.share_token,
         share_url=share_url,
@@ -65,6 +70,7 @@ def build_share_out(s: FileShare, request: Optional[Request] = None) -> ShareOut
         is_revoked=s.is_revoked,
         is_active=s.is_active and not s.is_revoked,
         is_expired=is_expired,
+        last_accessed_at=s.last_accessed_at,
         created_at=s.created_at,
         updated_at=s.updated_at
     )
@@ -80,16 +86,16 @@ def share_file(
     share_obj = create_file_share(db, owner=current_user, share_in=share_in, ip_address=ip)
     share_out = build_share_out(share_obj, request)
 
-    # Dispatch email notification to recipient inbox
-    target_email = None
-    if share_obj.shared_with and share_obj.shared_with.email:
+    target_email = share_obj.recipient_email
+    if not target_email and share_obj.shared_with:
         target_email = share_obj.shared_with.email
-    elif share_in.target_user_identifier and "@" in share_in.target_user_identifier:
+    elif not target_email and share_in.target_user_identifier and "@" in share_in.target_user_identifier:
         target_email = share_in.target_user_identifier.strip()
 
+    email_sent = False
     if target_email:
         from app.services.email_service import send_file_share_email
-        send_file_share_email(
+        email_sent = send_file_share_email(
             to_email=target_email,
             sender_name=current_user.name,
             sender_email=current_user.email,
@@ -100,9 +106,24 @@ def share_file(
             has_password=bool(share_obj.password_hash)
         )
 
+        if email_sent:
+            log_activity(
+                db,
+                action=AuditAction.SHARE_EMAIL_SENT,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource=f"Share:{share_obj.id}",
+                details=f"File share notification email dispatched to {target_email}",
+                success=True,
+                ip_address=ip
+            )
+
+    share_out.email_sent = email_sent
+    share_out.message = "File shared successfully" if email_sent else "File shared successfully (email notification delivery pending SMTP configuration)"
     return share_out
 
-@router.post("/{share_id}/resend-email")
+@router.post("/{share_id}/resend", response_model=dict)
+@router.post("/{share_id}/resend-email", response_model=dict)
 def resend_share_email(
     share_id: int,
     request: Request,
@@ -116,7 +137,13 @@ def resend_share_email(
     if share.shared_by_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the file owner can resend share notifications")
 
-    target_email = share.shared_with.email if share.shared_with else None
+    if share.is_revoked or not share.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot resend email for a revoked share link")
+
+    if share.expiry_at and datetime.utcnow() > share.expiry_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot resend email for an expired share link")
+
+    target_email = share.recipient_email or (share.shared_with.email if share.shared_with else None)
     if not target_email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No recipient email address assigned to this share link")
 
@@ -133,10 +160,21 @@ def resend_share_email(
         has_password=bool(share.password_hash)
     )
 
+    ip = request.client.host if request.client else None
     if email_sent:
-        return {"message": f"Email notification successfully sent to {target_email}", "email_sent": True}
+        log_activity(
+            db,
+            action=AuditAction.SHARE_EMAIL_SENT,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            resource=f"Share:{share.id}",
+            details=f"Resent file share email notification to {target_email}",
+            success=True,
+            ip_address=ip
+        )
+        return {"success": True, "message": f"Share notification email successfully sent to {target_email}", "email_sent": True}
     else:
-        return {"message": f"Share notification logged for {target_email}. Configure SMTP in .env for real inbox delivery.", "email_sent": False}
+        return {"success": False, "message": f"Share notification logged for {target_email}. Configure SMTP in environment for real inbox delivery.", "email_sent": False}
 
 @router.get("/created", response_model=List[ShareOut])
 def get_shares_created_by_me(
@@ -195,7 +233,7 @@ def revoke_share(
 ):
     ip = request.client.host if request.client else None
     revoke_file_share(db, share_id=share_id, owner=current_user, ip_address=ip)
-    return {"message": "Share revoked successfully"}
+    return {"message": "Share revoked successfully", "is_revoked": True}
 
 @router.get("/token/{share_token}", response_model=ShareOut)
 def get_token_share_info(
@@ -281,8 +319,8 @@ def generate_share_qr_code(
     if not share or not share.share_token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share token not found")
 
-    host_url = str(request.base_url).rstrip('/')
-    share_url = f"{host_url}/#share/{share.share_token}"
+    base_url = settings.PUBLIC_APP_URL.rstrip('/') if getattr(settings, 'PUBLIC_APP_URL', None) else str(request.base_url).rstrip('/')
+    share_url = f"{base_url}/#share/{share.share_token}"
 
     img = qrcode.make(share_url, image_factory=qrcode.image.svg.SvgImage)
     buf = io.BytesIO()

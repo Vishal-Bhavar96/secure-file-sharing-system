@@ -1,5 +1,6 @@
 import enum
 import secrets
+import hashlib
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import relationship, synonym
 from datetime import datetime
@@ -11,7 +12,12 @@ class SharePermission(str, enum.Enum):
     EDIT = "EDIT"
 
 def generate_share_token():
-    return secrets.token_hex(16)
+    return secrets.token_urlsafe(32)
+
+def hash_token(raw_token: str) -> str:
+    if not raw_token:
+        return ""
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 class FileShare(Base):
     __tablename__ = "file_shares"
@@ -20,8 +26,10 @@ class FileShare(Base):
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False, index=True)
     shared_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     shared_with_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    recipient_email = Column(String(255), nullable=True)
     permission = Column(Enum(SharePermission), default=SharePermission.DOWNLOAD, nullable=False)
     share_token = Column(String(100), unique=True, index=True, nullable=True, default=generate_share_token)
+    token_hash = Column(String(255), unique=True, index=True, nullable=True)
     password_hash = Column(String(255), nullable=True)
     expiry_at = Column(DateTime, nullable=True)
     max_downloads = Column(Integer, nullable=True)  # Null means unlimited
@@ -30,6 +38,7 @@ class FileShare(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_accessed_at = Column(DateTime, nullable=True)
 
     file = relationship("File", back_populates="shares")
     shared_by = relationship("User", foreign_keys=[shared_by_id], back_populates="shares_created")

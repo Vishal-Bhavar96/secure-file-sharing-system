@@ -10,10 +10,12 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 # Ensure project root directory is in sys.path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config.settings import settings
@@ -59,12 +61,17 @@ app.include_router(shares_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(admin_router, prefix=settings.API_V1_STR)
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
+
 # Mount Static Web Application Frontend
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+static_dir = os.path.join(project_root, "static")
 if os.path.exists(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 if __name__ == "__main__":
     init_db()
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    print(f"🚀 Starting {settings.PROJECT_NAME} on http://localhost:8000")
+    uvicorn.run(app, host="127.0.0.1", port=8000)

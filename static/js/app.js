@@ -626,11 +626,11 @@ async function submitShareForm() {
         document.getElementById('share-generated-url').value = lastGeneratedShareUrl;
         document.getElementById('share-result-container').style.display = 'block';
 
-        let validityMsg = 'File shared successfully!';
-        if (expiry_hours) validityMsg += ` Valid for ${expiry_hours}h.`;
-        if (max_downloads) validityMsg += ` Limited to ${max_downloads} download(s).`;
-
-        showToast(validityMsg, 'success');
+        let validityMsg = data.message || 'File shared successfully!';
+        if (data.email_sent === true) {
+            validityMsg += ' Email notification sent to recipient.';
+        }
+        showToast(validityMsg, data.email_sent === false ? 'info' : 'success');
         loadSharedFiles();
     } catch (err) {
         showToast(err.message, 'error');

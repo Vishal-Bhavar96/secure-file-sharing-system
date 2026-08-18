@@ -1,4 +1,5 @@
 import secrets
+import hashlib
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -6,7 +7,7 @@ from fastapi import HTTPException, status
 
 from app.models.file import File
 from app.models.user import User
-from app.models.share import FileShare, SharePermission, generate_share_token
+from app.models.share import FileShare, SharePermission, generate_share_token, hash_token
 from app.models.audit_log import AuditAction
 from app.schemas.share import ShareCreateRequest, ShareUpdateRequest
 from app.services.audit_service import log_activity
@@ -43,6 +44,8 @@ def create_file_share(
     # 2. Find target user if provided
     target_user = None
     target_identifier = (share_in.target_user_identifier or "").strip()
+    target_email = target_identifier.lower() if "@" in target_identifier else None
+
     if target_identifier:
         target_user = db.query(User).filter(
             (User.email.ilike(target_identifier)) | 
@@ -53,7 +56,6 @@ def create_file_share(
             if "@" in target_identifier:
                 from app.models.user import UserRole
                 
-                target_email = target_identifier.lower()
                 base_username = target_email.split("@")[0]
                 username = base_username
                 counter = 1
@@ -114,16 +116,20 @@ def create_file_share(
             FileShare.is_revoked == False
         ).first()
 
-    token = generate_share_token()
+    raw_token = generate_share_token()
+    token_h = hash_token(raw_token)
 
     if existing_share:
         existing_share.permission = share_in.permission
         existing_share.expiry_at = expiry_at
         existing_share.max_downloads = max_downloads
+        if target_email:
+            existing_share.recipient_email = target_email
         if pwd_hash:
             existing_share.password_hash = pwd_hash
         if not existing_share.share_token:
-            existing_share.share_token = token
+            existing_share.share_token = raw_token
+            existing_share.token_hash = token_h
         existing_share.is_active = True
         db.commit()
         db.refresh(existing_share)
@@ -133,8 +139,10 @@ def create_file_share(
             file_id=db_file.id,
             shared_by_id=owner.id,
             shared_with_id=target_user.id if target_user else None,
+            recipient_email=target_email or (target_user.email if target_user else None),
             permission=share_in.permission,
-            share_token=token,
+            share_token=raw_token,
+            token_hash=token_h,
             password_hash=pwd_hash,
             expiry_at=expiry_at,
             max_downloads=max_downloads,
@@ -146,7 +154,7 @@ def create_file_share(
         db.commit()
         db.refresh(share_obj)
 
-    recipient_desc = target_user.email if target_user else "Public Link"
+    recipient_desc = target_user.email if target_user else (target_email or "Public Link")
     log_activity(
         db,
         action=AuditAction.FILE_SHARED,
@@ -180,7 +188,7 @@ def get_share_access_and_validate(
     if share.is_revoked or not share.is_active:
         log_activity(
             db,
-            action=AuditAction.DOWNLOAD_BLOCKED if required_permission == SharePermission.DOWNLOAD else AuditAction.UNAUTHORIZED_ACCESS,
+            action=AuditAction.SHARE_REVOKED,
             user_id=user_id,
             user_email=user_email,
             resource=f"Share:{share_id}",
@@ -207,15 +215,15 @@ def get_share_access_and_validate(
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="This sharing link has expired."
+            detail="This sharing link has expired. Please contact the sender and request a new sharing link."
         )
 
     # 3. Check recipient identity if recipient is specifically assigned
     if share.shared_with_id is not None:
-        if not requesting_user or (requesting_user.id != share.shared_with_id and requesting_user.id != share.shared_by_id):
+        if requesting_user and (requesting_user.id != share.shared_with_id and requesting_user.id != share.shared_by_id):
             log_activity(
                 db,
-                action=AuditAction.UNAUTHORIZED_ACCESS,
+                action=AuditAction.SHARE_ACCESS_DENIED,
                 user_id=user_id,
                 user_email=user_email,
                 resource=f"Share:{share_id}",
@@ -233,7 +241,7 @@ def get_share_access_and_validate(
         if not password or not verify_password(password, share.password_hash):
             log_activity(
                 db,
-                action=AuditAction.DOWNLOAD_BLOCKED if required_permission == SharePermission.DOWNLOAD else AuditAction.UNAUTHORIZED_ACCESS,
+                action=AuditAction.INVALID_SHARE_PASSWORD,
                 user_id=user_id,
                 user_email=user_email,
                 resource=f"Share:{share_id}",
@@ -259,7 +267,7 @@ def get_share_access_and_validate(
         if share.permission not in (SharePermission.DOWNLOAD, SharePermission.EDIT):
             log_activity(
                 db,
-                action=AuditAction.DOWNLOAD_BLOCKED,
+                action=AuditAction.SHARE_ACCESS_DENIED,
                 user_id=user_id,
                 user_email=user_email,
                 resource=f"Share:{share_id}",
@@ -275,7 +283,7 @@ def get_share_access_and_validate(
         if share.max_downloads is not None and share.download_count >= share.max_downloads:
             log_activity(
                 db,
-                action=AuditAction.DOWNLOAD_BLOCKED,
+                action=AuditAction.DOWNLOAD_LIMIT_REACHED,
                 user_id=user_id,
                 user_email=user_email,
                 resource=f"Share:{share_id}",
@@ -285,8 +293,22 @@ def get_share_access_and_validate(
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Download limit exceeded."
+                detail="Download limit reached."
             )
+
+    share.last_accessed_at = datetime.utcnow()
+    db.commit()
+
+    log_activity(
+        db,
+        action=AuditAction.SHARE_ACCESS_GRANTED,
+        user_id=user_id,
+        user_email=user_email,
+        resource=f"Share:{share_id}",
+        details="Share access validation passed",
+        success=True,
+        ip_address=ip_address
+    )
 
     return share, db_file
 
@@ -298,21 +320,34 @@ def get_share_by_token(
     ip_address: str = None
 ) -> Tuple[FileShare, File]:
 
-    share = db.query(FileShare).filter(FileShare.share_token == token).first()
+    th = hash_token(token)
+    share = db.query(FileShare).filter(
+        (FileShare.token_hash == th) | (FileShare.share_token == token)
+    ).first()
+
     if not share:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid token")
+        log_activity(
+            db,
+            action=AuditAction.INVALID_SHARE_TOKEN,
+            user_id=requesting_user.id if requesting_user else None,
+            user_email=requesting_user.email if requesting_user else "Anonymous",
+            resource="ShareToken:Invalid",
+            details="Recipient attempted access with an invalid share token",
+            success=False,
+            ip_address=ip_address
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token")
 
     user_id = requesting_user.id if requesting_user else None
     user_email = requesting_user.email if requesting_user else "Anonymous"
 
-    # Log LINK_OPENED event
     log_activity(
         db,
-        action=AuditAction.LINK_OPENED,
+        action=AuditAction.SHARE_ACCESS_ATTEMPT,
         user_id=user_id,
         user_email=user_email,
-        resource=f"ShareToken:{token}",
-        details=f"Recipient opened share link for File:{share.file_id}",
+        resource=f"Share:{share.id}",
+        details=f"Recipient attempted share access for File:{share.file_id}",
         success=True,
         ip_address=ip_address
     )
@@ -324,17 +359,18 @@ def get_share_by_token(
 
 def increment_share_download(db: Session, share: FileShare, user: Optional[User] = None, ip_address: str = None):
     share.download_count += 1
+    share.last_accessed_at = datetime.utcnow()
     db.commit()
 
     user_id = user.id if user else None
     user_email = user.email if user else "Anonymous"
     log_activity(
         db,
-        action=AuditAction.DOWNLOAD_SUCCESS,
+        action=AuditAction.FILE_DOWNLOADED,
         user_id=user_id,
         user_email=user_email,
         resource=f"Share:{share.id}:File:{share.file_id}",
-        details=f"Download count incremented to {share.download_count}",
+        details=f"Downloaded file via share link (Total downloads: {share.download_count})",
         success=True,
         ip_address=ip_address
     )
@@ -439,7 +475,7 @@ def revoke_file_share(db: Session, share_id: int, owner: User, ip_address: str =
         user_id=owner.id,
         user_email=owner.email,
         resource=f"Share:{share_id}",
-        details=f"Revoked share with user_id {share.shared_with_id}",
+        details=f"Revoked share ID {share.id}",
         success=True,
         ip_address=ip_address
     )

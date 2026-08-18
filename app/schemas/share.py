@@ -61,6 +61,10 @@ class ShareOut(BaseModel):
     is_revoked: bool = False
     is_active: bool = True
     is_expired: bool = False
+    recipient_email: Optional[str] = None
+    email_sent: Optional[bool] = None
+    last_accessed_at: Optional[datetime] = None
+    message: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
