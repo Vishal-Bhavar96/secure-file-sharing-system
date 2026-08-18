@@ -80,7 +80,7 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
                 print(f"[SMTP ERROR] Could not deliver email via SMTP: {e}")
                 return False
         else:
-            print(f"[SMTP INFO] SMTP_USER is not configured in .env. To send real emails to Gmail, add SMTP_USER and SMTP_PASSWORD to your .env file.")
+            print(f"[SMTP INFO] SMTP_USER is not configured. Configure SMTP_USER and SMTP_PASSWORD environment variables to deliver real emails to {to_email}.")
             return False
     except Exception as exc:
         logger.error(f"Unexpected error in send_otp_email: {exc}")
@@ -172,7 +172,7 @@ def send_file_share_email(
                 print(f"[SMTP ERROR] Could not deliver file share email via SMTP: {e}")
                 return False
         else:
-            print(f"[SMTP INFO] SMTP_USER is not configured in .env. Configure SMTP_USER and SMTP_PASSWORD to deliver real emails to {to_email}.")
+            print(f"[SMTP INFO] SMTP_USER is not configured. Configure SMTP_USER and SMTP_PASSWORD environment variables to deliver real emails to {to_email}.")
             return False
     except Exception as exc:
         logger.error(f"Unexpected error in send_file_share_email: {exc}")

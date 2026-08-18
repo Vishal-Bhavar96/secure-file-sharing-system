@@ -1,6 +1,6 @@
 import os
 import base64
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 class Settings(BaseSettings):
@@ -30,9 +30,7 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str = Field(default="")
     EMAILS_FROM_NAME: str = Field(default="SecureShare Vault")
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(extra="ignore")
 
     def get_raw_encryption_key(self) -> bytes:
         """Returns 32 bytes binary key for AES-256"""
