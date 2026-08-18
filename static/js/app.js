@@ -484,6 +484,47 @@ async function deleteFile(id) {
 // Sharing Operations
 let lastGeneratedShareUrl = '';
 
+function generateAndSetSharePassword() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let pwd = '';
+    for (let i = 0; i < 12; i++) {
+        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const pwdInput = document.getElementById('share-password');
+    if (pwdInput) pwdInput.value = pwd;
+    showToast('Secure share password generated', 'info');
+}
+
+function copySharePassword() {
+    const pwdInput = document.getElementById('share-password');
+    if (pwdInput && pwdInput.value) {
+        navigator.clipboard.writeText(pwdInput.value);
+        showToast('Share password copied to clipboard!', 'success');
+    } else {
+        showToast('No password generated to copy', 'error');
+    }
+}
+
+function toggleSharePasswordVisibility(checked) {
+    const pwdContainer = document.getElementById('share-password-container');
+    if (pwdContainer) pwdContainer.style.display = checked ? 'block' : 'none';
+    if (checked && !document.getElementById('share-password').value) {
+        generateAndSetSharePassword();
+    }
+}
+
+function handleExpiryPresetSelectChange(val) {
+    const customContainer = document.getElementById('share-custom-date-container');
+    const expiryHoursInput = document.getElementById('share-expiry-hours');
+    if (val === 'custom') {
+        if (customContainer) customContainer.style.display = 'block';
+        if (expiryHoursInput) expiryHoursInput.value = '';
+    } else {
+        if (customContainer) customContainer.style.display = 'none';
+        if (expiryHoursInput) expiryHoursInput.value = val === 'null' ? '' : val;
+    }
+}
+
 function setExpiryPreset(hours, btn) {
     document.querySelectorAll('.expiry-preset-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
@@ -574,9 +615,18 @@ function openShareModal(id, name) {
     document.getElementById('share-file-name').textContent = name;
     document.getElementById('share-recipient').value = '';
     document.getElementById('share-permission').value = 'DOWNLOAD';
-    setExpiryPreset(null, document.querySelector('.expiry-preset-btn.active'));
-    setDownloadPreset(null, document.querySelector('.download-preset-btn.active'));
-    document.getElementById('share-password').value = '';
+    document.getElementById('share-expiry-preset-select').value = '24';
+    document.getElementById('share-expiry-hours').value = '24';
+    setDownloadPreset(1, document.querySelector('.download-preset-btn'));
+    
+    document.getElementById('share-requires-otp').checked = true;
+    const reqPwdCheckbox = document.getElementById('share-requires-password');
+    reqPwdCheckbox.checked = true;
+    document.getElementById('share-one-time-access').checked = false;
+    
+    toggleSharePasswordVisibility(true);
+    generateAndSetSharePassword();
+
     document.getElementById('share-result-container').style.display = 'none';
     document.getElementById('modal-share').classList.add('active');
 }
@@ -594,7 +644,10 @@ async function submitShareForm() {
     }
 
     const max_downloads = document.getElementById('share-max-downloads').value ? parseInt(document.getElementById('share-max-downloads').value) : null;
-    const password = document.getElementById('share-password').value || null;
+    const requires_otp = document.getElementById('share-requires-otp').checked;
+    const requires_password = document.getElementById('share-requires-password').checked;
+    const one_time_access = document.getElementById('share-one-time-access').checked;
+    const password = requires_password ? (document.getElementById('share-password').value || null) : null;
 
     try {
         const res = await fetch(`${API_BASE}/shares`, {
@@ -610,7 +663,10 @@ async function submitShareForm() {
                 expiry_hours,
                 expiry_date,
                 max_downloads,
-                password
+                password,
+                requires_otp,
+                requires_password,
+                one_time_access
             })
         });
 
@@ -626,9 +682,13 @@ async function submitShareForm() {
         document.getElementById('share-generated-url').value = lastGeneratedShareUrl;
         document.getElementById('share-result-container').style.display = 'block';
 
-        let validityMsg = data.message || 'File shared successfully!';
+        if (data.generated_password) {
+            document.getElementById('share-password').value = data.generated_password;
+        }
+
+        let validityMsg = data.message || 'File shared securely!';
         if (data.email_sent === true) {
-            validityMsg += ' Email notification sent to recipient.';
+            validityMsg += ' Notification email dispatched.';
         }
         showToast(validityMsg, data.email_sent === false ? 'info' : 'success');
         loadSharedFiles();
@@ -786,13 +846,13 @@ async function loadCreatedShares() {
         const shares = await res.json();
 
         if (!shares || shares.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center subtext">You have not shared any files with others yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center subtext">You have not shared any files with others yet.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = shares.map(s => {
             const safeFilename = escapeHtml(s.filename || 'Shared File');
-            const safeRecipient = escapeHtml(s.shared_with_email || 'Public Link');
+            const safeRecipient = escapeHtml(s.recipient_email || s.shared_with_email || 'Public Link');
 
             const isOnline = s.shared_with_online;
             const statusText = s.shared_with_last_seen || (isOnline ? 'Active now' : 'Offline');
@@ -803,13 +863,13 @@ async function loadCreatedShares() {
             const isExpired = s.is_expired;
             const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
 
-            let statusBadge = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>';
+            let statusBadge = '<span class="badge badge-success">🟢 Active</span>';
             if (isRevoked) {
-                statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Revoked</span>`;
+                statusBadge = `<span class="badge badge-danger">⚫ Revoked</span>`;
             } else if (isExpired) {
-                statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
+                statusBadge = `<span class="badge badge-danger">🔴 Expired</span>`;
             } else if (isLimitReached) {
-                statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-ban"></i> Limit Reached</span>`;
+                statusBadge = `<span class="badge badge-warning">🟠 Limit Reached</span>`;
             }
 
             let expiryText = 'Never';
@@ -818,6 +878,12 @@ async function loadCreatedShares() {
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 expiryText = isExpired ? 'Expired' : `${diffHours}h left`;
             }
+
+            // Security indicators
+            let secBadges = `<span class="security-tag"><i class="fa-solid fa-shield"></i> AES-256</span>`;
+            if (s.requires_otp) secBadges += ` <span class="security-tag otp-tag" title="OTP verification required">OTP ✓</span>`;
+            if (s.has_password || s.requires_password) secBadges += ` <span class="security-tag pwd-tag" title="Password protected">Password ✓</span>`;
+            if (s.expiry_at) secBadges += ` <span class="security-tag" title="Link expiration active">Expiry ✓</span>`;
 
             const shareUrl = s.share_url || `${window.location.origin}/#share/${s.share_token}`;
 
@@ -828,6 +894,7 @@ async function loadCreatedShares() {
                     <td><span class="badge">${escapeHtml(s.permission)}</span></td>
                     <td>${expiryText}</td>
                     <td>${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}</td>
+                    <td>${secBadges}</td>
                     <td>${statusBadge}</td>
                     <td>
                         <div class="demo-btn-group">
@@ -842,7 +909,7 @@ async function loadCreatedShares() {
             `;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${err.message}</td></tr>`;
     }
 }
 
@@ -971,7 +1038,15 @@ async function downloadSharedFile(shareId, filename) {
     }
 }
 
-// Token Link Access Handling (/#share/{share_token})
+let otpResendCountdownTimer = null;
+let currentShareTokenState = {
+    token: null,
+    shareData: null,
+    otpVerified: false,
+    passwordVerified: false,
+    passwordInput: null
+};
+
 function checkShareTokenHash() {
     const hash = window.location.hash;
     if (hash && hash.startsWith('#share/')) {
@@ -986,7 +1061,7 @@ async function openTokenShareView(token) {
     const modalBody = document.getElementById('token-share-body');
     if (!modalBody) return;
 
-    modalBody.innerHTML = `<div class="text-center" style="padding: 2rem;"><i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i><p style="margin-top: 1rem;">Validating secure share link...</p></div>`;
+    modalBody.innerHTML = `<div class="text-center" style="padding: 2.5rem;"><i class="fa-solid fa-shield-cat fa-spin fa-2x text-primary"></i><p style="margin-top: 1rem; color: #94a3b8;">Validating multi-factor security link...</p></div>`;
     document.getElementById('modal-token-share').classList.add('active');
 
     try {
@@ -994,122 +1069,249 @@ async function openTokenShareView(token) {
         const data = await res.json();
 
         if (!res.ok) {
-            if (res.status === 401 && data.detail === 'Incorrect password for shared file') {
-                renderPasswordPromptForToken(token);
-                return;
-            }
-            renderAccessDeniedForToken(data.detail || 'Access Denied');
+            renderAccessDeniedForToken(data.detail || 'Invalid or expired share link');
             return;
         }
 
-        renderTokenShareContent(token, data);
+        currentShareTokenState = {
+            token,
+            shareData: data,
+            otpVerified: !data.requires_otp,
+            passwordVerified: !data.requires_password,
+            passwordInput: null
+        };
+
+        renderRecipientVerificationStep();
     } catch (err) {
-        renderAccessDeniedForToken(err.message || 'Access Denied');
+        renderAccessDeniedForToken(err.message || 'Network error connecting to SecureShare server');
     }
 }
 
-async function resendShareEmailFromDetails() {
-    const shareId = document.getElementById('details-share-id').value;
-    if (!shareId) return;
+function renderRecipientVerificationStep() {
+    const modalBody = document.getElementById('token-share-body');
+    const state = currentShareTokenState;
+    const share = state.shareData;
 
-    const btn = document.getElementById('btn-resend-share-email');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending...`;
+    if (!share) return;
+
+    const safeFilename = escapeHtml(share.filename || 'Shared File');
+    const safeSender = escapeHtml(share.shared_by_name || share.shared_by_email || 'Sender');
+    const safePermission = escapeHtml(share.permission || 'DOWNLOAD');
+    const expiryText = share.expiry_at ? new Date(share.expiry_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never';
+
+    // Step calculations
+    const step1Done = true; // Email verification
+    const step2Done = !share.requires_otp || state.otpVerified;
+    const step3Done = !share.requires_password || state.passwordVerified;
+
+    const allStepsCompleted = step1Done && step2Done && step3Done;
+
+    // Header Card & Stepper
+    let html = `
+        <div style="padding: 0.25rem;">
+            <!-- Main Title & File Summary Card -->
+            <div style="background: rgba(30, 58, 95, 0.25); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: #38bdf8; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px;">SECURESHARE</span>
+                    <span class="badge badge-success"><i class="fa-solid fa-shield-halved"></i> Multi-Factor Security</span>
+                </div>
+                <h3 style="margin: 0 0 0.5rem 0; font-size: 1.15rem; color: #f8fafc;"><i class="fa-solid fa-file-shield text-primary"></i> ${safeFilename}</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.82rem; color: #94a3b8; margin-top: 0.5rem;">
+                    <span>Shared by: <strong style="color: #f1f5f9;">${safeSender}</strong></span>
+                    <span>Permission: <strong style="color: #38bdf8;">${safePermission}</strong></span>
+                    <span>Expires: <strong style="color: #f1f5f9;">${expiryText}</strong></span>
+                </div>
+            </div>
+
+            <!-- Stepper Progress Bar -->
+            <div class="stepper-container">
+                <div class="stepper-step completed">
+                    <div class="stepper-circle"><i class="fa-solid fa-check"></i></div>
+                    <span class="stepper-label">Step 1: Email ✓</span>
+                </div>
+
+                <div class="stepper-line ${step2Done ? 'active' : ''}"></div>
+
+                <div class="stepper-step ${step2Done ? 'completed' : 'active'}">
+                    <div class="stepper-circle">${step2Done ? '<i class="fa-solid fa-check"></i>' : '2'}</div>
+                    <span class="stepper-label">Step 2: OTP</span>
+                </div>
+
+                <div class="stepper-line ${step3Done ? 'active' : ''}"></div>
+
+                <div class="stepper-step ${step3Done ? 'completed' : (step2Done ? 'active' : '')}">
+                    <div class="stepper-circle">${step3Done ? '<i class="fa-solid fa-check"></i>' : '3'}</div>
+                    <span class="stepper-label">Step 3: Password</span>
+                </div>
+            </div>
+    `;
+
+    // Render active step view
+    if (!step2Done) {
+        // Step 2: OTP Verification
+        const targetEmail = escapeHtml(share.recipient_email || 'your registered email');
+        html += `
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color, #334155); border-radius: 10px; padding: 1.5rem; text-align: center; margin-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem; font-size: 1.05rem;"><i class="fa-solid fa-mobile-screen-button text-primary"></i> Step 2: Enter OTP Verification Code</h4>
+                <p class="subtext" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
+                    A 6-digit verification code will be dispatched to <strong>${targetEmail}</strong>.
+                </p>
+
+                <form onsubmit="handleRecipientOTPVerify(event)">
+                    <div class="form-group" style="max-width: 260px; margin: 0 auto 1.25rem auto;">
+                        <input type="text" id="recipient-otp-input" class="pin-code-input" maxlength="6" pattern="[0-9]{6}" placeholder="------" required autocomplete="off">
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem; justify-content: center; align-items: center;">
+                        <button type="submit" class="btn btn-primary" id="btn-verify-otp"><i class="fa-solid fa-shield-check"></i> Verify OTP</button>
+                        <button type="button" class="btn btn-outline" id="btn-request-otp" onclick="handleRecipientOTPRequest()"><i class="fa-solid fa-paper-plane"></i> Send OTP</button>
+                    </div>
+                    <div id="otp-resend-countdown" style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.85rem;"></div>
+                </form>
+            </div>
+        `;
+    } else if (!step3Done) {
+        // Step 3: Separate Share Password
+        html += `
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color, #334155); border-radius: 10px; padding: 1.5rem; text-align: center; margin-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem; font-size: 1.05rem;"><i class="fa-solid fa-key text-primary"></i> Step 3: Enter Separate Share Password</h4>
+                <p class="subtext" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
+                    Enter the separate share password provided out-of-band by the file owner.
+                </p>
+
+                <form onsubmit="handleRecipientPasswordVerify(event)">
+                    <div class="form-group" style="max-width: 320px; margin: 0 auto 1.25rem auto;">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="recipient-password-input" placeholder="Enter share password" required>
+                            <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('recipient-password-input', this)"></i>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-lock-open"></i> Verify Password</button>
+                </form>
+            </div>
+        `;
+    } else {
+        // Access Granted!
+        const pwdParam = state.passwordInput ? `?password=${encodeURIComponent(state.passwordInput)}&otp_verified=true` : `?otp_verified=true`;
+        const downloadUrl = `${API_BASE}/shares/token/${state.token}/download${pwdParam}`;
+        const viewUrl = `${API_BASE}/shares/token/${state.token}/view${pwdParam}`;
+
+        const canDownload = share.permission !== 'VIEW' && !share.is_expired;
+
+        html += `
+            <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; padding: 1.5rem; text-align: center; margin-top: 1rem;">
+                <div style="font-size: 2.2rem; color: #22c55e; margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check"></i></div>
+                <h3 style="color: #22c55e; margin: 0 0 0.5rem 0; font-size: 1.3rem;">ACCESS GRANTED</h3>
+                <p class="subtext" style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+                    All security verification checks completed successfully.
+                </p>
+
+                <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+                    <a href="${viewUrl}" target="_blank" class="btn btn-outline"><i class="fa-solid fa-eye"></i> View File</a>
+                    ${canDownload ? 
+                        `<a href="${downloadUrl}" class="btn btn-primary" download><i class="fa-solid fa-download"></i> Download File</a>` : 
+                        `<button class="btn btn-outline" disabled><i class="fa-solid fa-lock"></i> Download Restricted</button>`}
+                </div>
+            </div>
+        `;
     }
 
+    html += `</div>`;
+    modalBody.innerHTML = html;
+}
+
+async function handleRecipientOTPRequest() {
+    const state = currentShareTokenState;
+    if (!state || !state.token) return;
+
+    const btn = document.getElementById('btn-request-otp');
+    if (btn) btn.disabled = true;
+
     try {
-        const res = await fetch(`${API_BASE}/shares/${shareId}/resend-email`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-
+        const res = await fetch(`${API_BASE}/shares/token/${state.token}/otp`, { method: 'POST' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Failed to resend email');
+        if (!res.ok) throw new Error(data.detail || 'Failed to request OTP');
 
-        showToast(data.message || 'Share email notification sent!', 'success');
+        showToast(data.message || 'OTP verification code dispatched to email', 'success');
+        startOTPResendTimer(45);
     } catch (err) {
         showToast(err.message, 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Resend Email`;
-        }
+        if (btn) btn.disabled = false;
     }
 }
 
-function renderPasswordPromptForToken(token) {
-    const modalBody = document.getElementById('token-share-body');
-    modalBody.innerHTML = `
-        <div style="text-align: center; padding: 1rem;">
-            <i class="fa-solid fa-lock text-primary fa-3x" style="margin-bottom: 1rem;"></i>
-            <h4>Password Protected Shared File</h4>
-            <p class="subtext" style="margin-bottom: 1.5rem;">This share link requires a password set by the owner.</p>
-            <form onsubmit="submitTokenPasswordForm(event, '${escapeHtml(token)}')">
-                <div class="form-group" style="text-align: left;">
-                    <label>Password</label>
-                    <input type="password" id="token-pwd-input" required placeholder="Enter file password">
-                </div>
-                <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-key"></i> Unlock Shared File</button>
-            </form>
-        </div>
-    `;
+function startOTPResendTimer(seconds) {
+    if (otpResendCountdownTimer) clearInterval(otpResendCountdownTimer);
+    let remaining = seconds;
+    const label = document.getElementById('otp-resend-countdown');
+    const btn = document.getElementById('btn-request-otp');
+
+    if (btn) btn.disabled = true;
+
+    otpResendCountdownTimer = setInterval(() => {
+        remaining--;
+        if (label) label.textContent = `Resend available in ${remaining} seconds`;
+        if (remaining <= 0) {
+            clearInterval(otpResendCountdownTimer);
+            if (label) label.textContent = '';
+            if (btn) btn.disabled = false;
+        }
+    }, 1000);
 }
 
-async function submitTokenPasswordForm(e, token) {
+async function handleRecipientOTPVerify(e) {
     e.preventDefault();
-    const pwd = document.getElementById('token-pwd-input').value;
+    const state = currentShareTokenState;
+    const otpVal = document.getElementById('recipient-otp-input').value.trim();
+
     try {
-        const res = await fetch(`${API_BASE}/shares/token/${token}/verify`, {
+        const res = await fetch(`${API_BASE}/shares/token/${state.token}/verify-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pwd })
+            body: JSON.stringify({ otp: otpVal })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'OTP verification failed');
+
+        showToast('OTP verified successfully!', 'success');
+        state.otpVerified = true;
+        renderRecipientVerificationStep();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function handleRecipientPasswordVerify(e) {
+    e.preventDefault();
+    const state = currentShareTokenState;
+    const pwdVal = document.getElementById('recipient-password-input').value;
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/token/${state.token}/verify-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwdVal })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Password verification failed');
 
-        renderTokenShareContent(token, data, pwd);
+        showToast('Share password verified!', 'success');
+        state.passwordVerified = true;
+        state.passwordInput = pwdVal;
+        renderRecipientVerificationStep();
     } catch (err) {
         showToast(err.message, 'error');
     }
-}
-
-function renderTokenShareContent(token, shareData, password = null) {
-    const modalBody = document.getElementById('token-share-body');
-    const safeFilename = escapeHtml(shareData.filename);
-    const safeSharedBy = escapeHtml(shareData.shared_by_email);
-    const pwdQuery = password ? `?password=${encodeURIComponent(password)}` : '';
-
-    const canDownload = shareData.permission !== 'VIEW' && !shareData.is_expired;
-
-    modalBody.innerHTML = `
-        <div style="padding: 0.5rem;">
-            <h3 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-file-circle-check text-primary"></i> ${safeFilename}</h3>
-            <p class="subtext" style="margin-bottom: 1rem;">Shared by <strong>${safeSharedBy}</strong></p>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.85rem;">
-                <div><strong>Permission:</strong> <span class="badge">${escapeHtml(shareData.permission)}</span></div>
-                <div><strong>Status:</strong> <span class="badge badge-success">Active</span></div>
-                <div><strong>Downloads:</strong> ${shareData.download_count} / ${shareData.max_downloads !== null ? shareData.max_downloads : 'Unlimited'}</div>
-                <div><strong>Expiration:</strong> ${shareData.expiry_at ? new Date(shareData.expiry_at).toLocaleString() : 'Never'}</div>
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                ${canDownload ? 
-                    `<a href="${API_BASE}/shares/token/${token}/download${pwdQuery}" class="btn btn-primary" target="_blank"><i class="fa-solid fa-download"></i> Download File</a>` : 
-                    `<button class="btn btn-outline" disabled><i class="fa-solid fa-eye"></i> View Only Access</button>`}
-            </div>
-        </div>
-    `;
 }
 
 function renderAccessDeniedForToken(reason) {
     const modalBody = document.getElementById('token-share-body');
     modalBody.innerHTML = `
-        <div style="text-align: center; padding: 2rem;">
+        <div style="text-align: center; padding: 2.5rem 1rem;">
             <i class="fa-solid fa-circle-exclamation text-danger fa-3x" style="margin-bottom: 1rem;"></i>
-            <h3 class="text-danger">Access Denied</h3>
-            <p style="margin-top: 0.5rem; color: var(--text-muted);">${escapeHtml(reason)}</p>
+            <h3 class="text-danger" style="margin: 0 0 0.5rem 0;">Access Denied</h3>
+            <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">${escapeHtml(reason)}</p>
             <button class="btn btn-outline btn-sm" style="margin-top: 1.5rem;" onclick="closeModal('modal-token-share')">Close</button>
         </div>
     `;

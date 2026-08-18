@@ -31,6 +31,13 @@ class FileShare(Base):
     share_token = Column(String(100), unique=True, index=True, nullable=True, default=generate_share_token)
     token_hash = Column(String(255), unique=True, index=True, nullable=True)
     password_hash = Column(String(255), nullable=True)
+    requires_otp = Column(Boolean, default=True, nullable=False)
+    otp_code_hash = Column(String(255), nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    otp_attempts = Column(Integer, default=0, nullable=False)
+    otp_last_sent_at = Column(DateTime, nullable=True)
+    requires_password = Column(Boolean, default=False, nullable=False)
+    one_time_access = Column(Boolean, default=False, nullable=False)
     expiry_at = Column(DateTime, nullable=True)
     max_downloads = Column(Integer, nullable=True)  # Null means unlimited
     download_count = Column(Integer, default=0, nullable=False)
@@ -39,6 +46,7 @@ class FileShare(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_accessed_at = Column(DateTime, nullable=True)
+    last_downloaded_at = Column(DateTime, nullable=True)
 
     file = relationship("File", back_populates="shares")
     shared_by = relationship("User", foreign_keys=[shared_by_id], back_populates="shares_created")

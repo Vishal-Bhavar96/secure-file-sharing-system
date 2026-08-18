@@ -61,6 +61,11 @@ app.include_router(shares_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(admin_router, prefix=settings.API_V1_STR)
 
+# Top-level direct specification aliases
+from app.routes.shares import get_token_share_info, download_by_token
+app.add_api_route("/api/share/{share_token}", get_token_share_info, methods=["GET"], tags=["File Sharing (Spec Alias)"])
+app.add_api_route("/api/share/{share_token}/download", download_by_token, methods=["GET"], tags=["File Sharing (Spec Alias)"])
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return Response(status_code=204)

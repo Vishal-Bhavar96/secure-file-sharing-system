@@ -37,6 +37,22 @@ def migrate_schema():
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN is_active BOOLEAN DEFAULT 1"))
                 if "updated_at" not in share_cols:
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN updated_at DATETIME"))
+                if "requires_otp" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN requires_otp BOOLEAN DEFAULT 1"))
+                if "otp_code_hash" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN otp_code_hash VARCHAR(255)"))
+                if "otp_expires_at" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN otp_expires_at DATETIME"))
+                if "otp_attempts" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN otp_attempts INTEGER DEFAULT 0"))
+                if "otp_last_sent_at" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN otp_last_sent_at DATETIME"))
+                if "requires_password" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN requires_password BOOLEAN DEFAULT 0"))
+                if "one_time_access" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN one_time_access BOOLEAN DEFAULT 0"))
+                if "last_downloaded_at" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN last_downloaded_at DATETIME"))
                 conn.commit()
     except Exception:
         pass

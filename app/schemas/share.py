@@ -6,12 +6,16 @@ from app.models.share import SharePermission
 class ShareCreateRequest(BaseModel):
     file_id: int
     target_user_identifier: Optional[str] = Field(None, description="Email or Username of target recipient")
+    recipient_email: Optional[str] = Field(None, description="Recipient email address")
     permission: SharePermission = SharePermission.DOWNLOAD
     expiry_hours: Optional[int] = Field(None, ge=1, le=8760, description="Expiration in hours from now")
     expiry_date: Optional[datetime] = Field(None, description="Custom expiration datetime")
     max_downloads: Optional[int] = Field(None, ge=1, description="Maximum download count allowed")
     download_limit: Optional[int] = Field(None, ge=1, description="Maximum download count allowed (alias)")
-    password: Optional[str] = Field(None, description="Optional password protection")
+    password: Optional[str] = Field(None, description="Optional separate share password")
+    requires_otp: Optional[bool] = Field(True, description="Require 6-digit OTP verification")
+    requires_password: Optional[bool] = Field(False, description="Require separate share password")
+    one_time_access: Optional[bool] = Field(False, description="Auto-revoke share link after 1 successful download")
 
 class ShareUpdateRequest(BaseModel):
     permission: Optional[SharePermission] = None
@@ -20,10 +24,19 @@ class ShareUpdateRequest(BaseModel):
     max_downloads: Optional[int] = Field(None, ge=1)
     download_limit: Optional[int] = Field(None, ge=1)
     password: Optional[str] = None
+    requires_otp: Optional[bool] = None
+    requires_password: Optional[bool] = None
+    one_time_access: Optional[bool] = None
     is_active: Optional[bool] = None
 
 class ShareTokenVerifyRequest(BaseModel):
     password: Optional[str] = None
+
+class ShareOTPVerifyRequest(BaseModel):
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
+
+class SharePasswordVerifyRequest(BaseModel):
+    password: str = Field(..., description="Separate share password")
 
 class ShareUserSearchOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -41,6 +54,7 @@ class ShareOut(BaseModel):
     owner_id: int
     shared_by_id: int
     shared_by_email: str
+    shared_by_name: Optional[str] = "Sender"
     shared_by_online: bool = False
     shared_by_last_seen: str = "Offline"
     shared_user_id: Optional[int] = None
@@ -52,6 +66,11 @@ class ShareOut(BaseModel):
     share_token: Optional[str] = None
     share_url: Optional[str] = None
     has_password: bool = False
+    requires_otp: bool = True
+    requires_password: bool = False
+    one_time_access: bool = False
+    otp_verified: bool = False
+    password_verified: bool = False
     expiry_at: Optional[datetime] = None
     expiry_date: Optional[datetime] = None
     max_downloads: Optional[int] = None
@@ -64,6 +83,8 @@ class ShareOut(BaseModel):
     recipient_email: Optional[str] = None
     email_sent: Optional[bool] = None
     last_accessed_at: Optional[datetime] = None
+    last_downloaded_at: Optional[datetime] = None
+    generated_password: Optional[str] = None
     message: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

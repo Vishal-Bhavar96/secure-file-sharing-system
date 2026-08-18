@@ -283,12 +283,13 @@
                                     <th>Permission</th>
                                     <th>Expiration</th>
                                     <th>Downloads</th>
+                                    <th>Security</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="created-shares-table-body">
-                                <tr><td colspan="7" class="text-center">Loading sent shares...</td></tr>
+                                <tr><td colspan="8" class="text-center">Loading sent shares...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -409,78 +410,115 @@
 
         <!-- Share Modal -->
         <div id="modal-share" class="modal">
-            <div class="modal-content glass-panel" style="max-width: 600px; width: 92%;">
+            <div class="modal-content glass-panel" style="max-width: 620px; width: 92%;">
                 <div class="modal-header">
-                    <h3><i class="fa-solid fa-share-nodes"></i> Secure File Sharing</h3>
+                    <h3><i class="fa-solid fa-shield-halved text-primary"></i> SECURE FILE SHARING</h3>
                     <button class="modal-close" onclick="closeModal('modal-share')">&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="share-file-id">
-                    <p class="file-name-label" style="margin-bottom: 1rem;">File: <strong id="share-file-name" class="text-primary">filename.txt</strong></p>
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color, #334155); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                        <p class="file-name-label" style="margin: 0; font-size: 0.95rem;">File: <strong id="share-file-name" class="text-primary">filename.txt</strong></p>
+                    </div>
                     
                     <div class="form-group" style="position: relative;">
-                        <label><i class="fa-solid fa-user-check"></i> Select Recipient User (Search by Email or Username)</label>
-                        <input type="text" id="share-recipient" placeholder="Type email or username..." oninput="handleUserSearchInput(this.value)" autocomplete="off">
+                        <label><i class="fa-solid fa-envelope"></i> Recipient Email Address</label>
+                        <input type="email" id="share-recipient" placeholder="recipient@example.com" oninput="handleUserSearchInput(this.value)" autocomplete="off" required>
                         <div id="share-user-results" class="glass-panel" style="display:none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 180px; overflow-y: auto; background: var(--bg-dark, #0f172a); border: 1px solid var(--border-color, #334155); margin-top: 2px;"></div>
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fa-solid fa-shield-halved"></i> Permission Level</label>
-                        <select id="share-permission">
-                            <option value="DOWNLOAD">Download (Can preview & download file)</option>
-                            <option value="VIEW">View Only (Can only preview metadata & content)</option>
-                            <option value="EDIT">Edit (Can preview, download & edit metadata)</option>
-                        </select>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label><i class="fa-solid fa-shield"></i> Permission</label>
+                            <select id="share-permission">
+                                <option value="DOWNLOAD">Download (Full Access)</option>
+                                <option value="VIEW">View Only (Preview)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label><i class="fa-solid fa-clock"></i> Expiration</label>
+                            <select id="share-expiry-preset-select" onchange="handleExpiryPresetSelectChange(this.value)">
+                                <option value="1">1 Hour</option>
+                                <option value="6">6 Hours</option>
+                                <option value="24" selected>24 Hours</option>
+                                <option value="168">7 Days</option>
+                                <option value="custom">Custom Date</option>
+                                <option value="null">Unlimited (Never)</option>
+                            </select>
+                            <input type="hidden" id="share-expiry-hours" value="24">
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fa-solid fa-clock"></i> Share Expiration</label>
-                        <div class="demo-btn-group" style="margin-bottom: 0.5rem;">
-                            <button type="button" class="btn btn-sm btn-outline expiry-preset-btn" onclick="setExpiryPreset(1, this)">⚡ 1 Hour</button>
-                            <button type="button" class="btn btn-sm btn-outline expiry-preset-btn" onclick="setExpiryPreset(24, this)">🕒 24 Hours</button>
-                            <button type="button" class="btn btn-sm btn-outline expiry-preset-btn" onclick="setExpiryPreset(168, this)">📅 7 Days</button>
-                            <button type="button" class="btn btn-sm btn-outline expiry-preset-btn" onclick="toggleCustomDateExpiry(this)">📅 Custom Date</button>
-                            <button type="button" class="btn btn-sm btn-outline expiry-preset-btn active" onclick="setExpiryPreset(null, this)">♾️ Unlimited</button>
-                        </div>
-                        <input type="hidden" id="share-expiry-hours">
-                        <div id="share-custom-date-container" style="display:none; margin-top: 0.5rem;">
-                            <label style="font-size: 0.8rem;">Select Custom Expiry Date & Time:</label>
-                            <input type="datetime-local" id="share-custom-date-input">
-                        </div>
+                    <div id="share-custom-date-container" style="display:none; margin-bottom: 1rem;">
+                        <label style="font-size: 0.8rem;"><i class="fa-solid fa-calendar-days"></i> Custom Expiry Date & Time:</label>
+                        <input type="datetime-local" id="share-custom-date-input">
                     </div>
 
                     <div class="form-group">
                         <label><i class="fa-solid fa-download"></i> Download Limit</label>
                         <div class="demo-btn-group" style="margin-bottom: 0.5rem;">
-                            <button type="button" class="btn btn-sm btn-outline download-preset-btn" onclick="setDownloadPreset(1, this)">1</button>
-                            <button type="button" class="btn btn-sm btn-outline download-preset-btn" onclick="setDownloadPreset(3, this)">3</button>
+                            <button type="button" class="btn btn-sm btn-outline download-preset-btn active" onclick="setDownloadPreset(1, this)">1</button>
                             <button type="button" class="btn btn-sm btn-outline download-preset-btn" onclick="setDownloadPreset(5, this)">5</button>
                             <button type="button" class="btn btn-sm btn-outline download-preset-btn" onclick="setDownloadPreset(10, this)">10</button>
-                            <button type="button" class="btn btn-sm btn-outline download-preset-btn active" onclick="setDownloadPreset(null, this)">Unlimited</button>
+                            <button type="button" class="btn btn-sm btn-outline download-preset-btn" onclick="setDownloadPreset(null, this)">Unlimited</button>
                         </div>
-                        <input type="hidden" id="share-max-downloads">
+                        <input type="hidden" id="share-max-downloads" value="1">
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fa-solid fa-lock"></i> Optional Password Protection</label>
-                        <div class="password-input-wrapper">
-                            <input type="password" id="share-password" placeholder="Leave empty for open link">
-                            <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('share-password', this)"></i>
+                    <div class="form-group" style="background: rgba(30, 58, 95, 0.2); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 1rem;">
+                        <label style="color: #38bdf8; font-weight: 600; margin-bottom: 0.75rem; display: block;"><i class="fa-solid fa-lock text-primary"></i> Access Security Controls</label>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; color: var(--text-primary);">
+                                <input type="checkbox" id="share-requires-otp" checked style="width: 16px; height: 16px; accent-color: #2563eb;">
+                                <span>☑ Require OTP verification (Sent to recipient email)</span>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; color: var(--text-primary);">
+                                <input type="checkbox" id="share-requires-password" checked onchange="toggleSharePasswordVisibility(this.checked)" style="width: 16px; height: 16px; accent-color: #2563eb;">
+                                <span>☑ Require separate share password</span>
+                            </label>
+
+                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; color: var(--text-primary);">
+                                <input type="checkbox" id="share-one-time-access" style="width: 16px; height: 16px; accent-color: #2563eb;">
+                                <span>☑ One-Time Access (Auto-revoke link after 1 successful download)</span>
+                            </label>
+                        </div>
+
+                        <div id="share-password-container" style="margin-top: 1rem;">
+                            <label style="font-size: 0.82rem; color: #94a3b8;"><i class="fa-solid fa-key"></i> Separate Share Password</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <div class="password-input-wrapper" style="flex: 1;">
+                                    <input type="text" id="share-password" placeholder="Auto-generated or enter custom">
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="generateAndSetSharePassword()" title="Generate new password"><i class="fa-solid fa-arrows-rotate"></i> Generate</button>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="copySharePassword()" title="Copy password"><i class="fa-solid fa-copy"></i> Copy</button>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 0.6rem 0.85rem; border-radius: 4px; margin-top: 0.85rem;">
+                            <p style="color: #fbbf24; font-size: 0.78rem; margin: 0; line-height: 1.4;">
+                                💡 <strong>Important:</strong> Do not send the share password through the same email as the secure link.
+                            </p>
                         </div>
                     </div>
 
                     <div id="share-result-container" style="display:none; margin-top: 1rem; padding: 1rem; background: rgba(56, 189, 248, 0.08); border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3);">
-                        <label style="color: var(--accent-blue, #38bdf8); font-weight: 600;"><i class="fa-solid fa-link"></i> Secure Sharing Link Generated:</label>
+                        <label style="color: var(--accent-blue, #38bdf8); font-weight: 600;"><i class="fa-solid fa-circle-check text-success"></i> File Shared Successfully</label>
                         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                             <input type="text" id="share-generated-url" readonly style="flex: 1; background: var(--bg-dark, #0f172a); font-family: monospace; font-size: 0.85rem;">
                             <button type="button" class="btn btn-sm btn-primary" onclick="copyShareGeneratedLink()"><i class="fa-solid fa-copy"></i> Copy Link</button>
                             <button type="button" class="btn btn-sm btn-outline" onclick="showShareQRCode()"><i class="fa-solid fa-qrcode"></i> QR Code</button>
                         </div>
+                        <div id="localhost-warning-banner" style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; line-height: 1.4;">
+                            ℹ️ <em>Localhost Development Notice: Localhost URLs cannot be accessed by external recipients unless exposed through a tunnel or deployed environment.</em>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="closeModal('modal-share')">Close</button>
-                    <button class="btn btn-primary" id="btn-submit-share" onclick="submitShareForm()"><i class="fa-solid fa-paper-plane"></i> Generate & Share Link</button>
+                <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                    <button class="btn btn-outline" onclick="closeModal('modal-share')">Cancel</button>
+                    <button class="btn btn-primary" id="btn-submit-share" onclick="submitShareForm()"><i class="fa-solid fa-shield-cat"></i> Share Securely</button>
                 </div>
             </div>
         </div>

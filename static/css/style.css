@@ -1076,3 +1076,110 @@ body.light-theme .account-dropdown-menu {
         white-space: nowrap;
     }
 }
+
+/* Multi-Factor Verification Stepper & Badges */
+.stepper-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1.25rem 0 1.5rem 0;
+    position: relative;
+}
+
+.stepper-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    z-index: 2;
+}
+
+.stepper-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-main, #0f172a);
+    border: 2px solid var(--border-glass, #334155);
+    color: var(--text-secondary, #94a3b8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.stepper-step.active .stepper-circle {
+    border-color: var(--accent-blue, #2563eb);
+    background: var(--accent-blue, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+}
+
+.stepper-step.completed .stepper-circle {
+    border-color: var(--accent-green, #15803d);
+    background: var(--accent-green, #15803d);
+    color: #ffffff;
+}
+
+.stepper-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary, #64748b);
+}
+
+.stepper-step.active .stepper-label {
+    color: var(--accent-blue, #2563eb);
+    font-weight: 600;
+}
+
+.stepper-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border-glass, #334155);
+    margin: 0 0.5rem;
+    position: relative;
+    top: -10px;
+}
+
+.stepper-line.active {
+    background: var(--accent-blue, #2563eb);
+}
+
+.pin-code-input {
+    letter-spacing: 8px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    font-family: monospace;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--accent-blue, #2563eb);
+}
+
+.security-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(37, 99, 235, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.security-tag.otp-tag {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+}
+
+.security-tag.pwd-tag {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
