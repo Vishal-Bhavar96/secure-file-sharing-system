@@ -41,7 +41,6 @@ secure-file-sharing-system/
 ├── static/                       # Frontend SPA (index.html, style.css, app.js)
 ├── storage/uploads/              # AES-256 encrypted file payload storage
 ├── tests/                        # Automated test suites covering Weeks 1 through 8
-├── .env                          # Environment secrets configuration
 ├── requirements.txt              # Python package dependencies
 └── README.md                     # Documentation
 ```

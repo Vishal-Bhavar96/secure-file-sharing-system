@@ -614,7 +614,12 @@ async function submitShareForm() {
             })
         });
 
-        const data = await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch (jsonErr) {
+            throw new Error(`Server error (${res.status}). Please try again.`);
+        }
         if (!res.ok) throw new Error(data.detail || 'Share creation failed');
 
         lastGeneratedShareUrl = data.share_url || `${window.location.origin}/#share/${data.share_token}`;
