@@ -38,8 +38,11 @@ def test_valid_file_share_with_multi_factor(client, user_a, user_b, token_user_a
     assert share_data["requires_otp"] is True
     assert share_data["has_password"] is True
 
-    # 3. Recipient views token metadata (GET /api/v1/shares/token/{token})
-    res_meta = client.get(f"/api/v1/shares/token/{share_token}")
+    # 3. Recipient views token metadata with password
+    res_meta_unauth = client.get(f"/api/v1/shares/token/{share_token}")
+    assert res_meta_unauth.status_code == 401
+
+    res_meta = client.get(f"/api/v1/shares/token/{share_token}?password=ShareSecretPassword123!")
     assert res_meta.status_code == 200
     meta = res_meta.json()
     assert meta["filename"] == "financial_report.pdf"
