@@ -12,12 +12,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
 </head>
-<body class="dark-theme">
+<body class="clean-theme">
     <div id="app" class="app-container">
         <!-- Navigation Header -->
         <header class="navbar">
             <div class="logo-container">
-                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <div class="logo-icon-wrapper">
+                    <i class="fa-solid fa-shield-halved logo-icon"></i>
+                </div>
                 <span class="logo-text">SecureShare <span class="badge">AES-256</span></span>
             </div>
             
@@ -85,7 +87,7 @@
 
             <!-- View 1: Auth Modal View (When not logged in) -->
             <section id="view-auth" class="view-section active">
-                <div class="auth-card glass-panel">
+                <div class="auth-card">
                     <div class="auth-tabs">
                         <button id="tab-login-btn" class="auth-tab-btn active" onclick="switchAuthTab('login')">Sign In</button>
                         <button id="tab-register-btn" class="auth-tab-btn" onclick="switchAuthTab('register')">Register Account</button>
@@ -94,24 +96,39 @@
                     <!-- Login Form -->
                     <form id="form-login" class="auth-form active" onsubmit="handleLogin(event)">
                         <h2>Welcome Back</h2>
-                        <p class="subtitle">Access your end-to-end encrypted file vault</p>
+                        <p class="subtitle">Access your secure encrypted file workspace</p>
                         
                         <div class="form-group">
-                            <label><i class="fa-solid fa-envelope"></i> Email or Username</label>
+                            <label for="login-email"><i class="fa-solid fa-envelope"></i> Email or Username</label>
                             <input type="text" id="login-email" placeholder="user@example.com or username" required>
                         </div>
                         
-                        <div class="form-group" style="margin-bottom: 0.5rem;">
-                            <label><i class="fa-solid fa-lock"></i> Password</label>
-                            <input type="password" id="login-password" placeholder="••••••••" required>
+                        <div class="form-group" style="margin-bottom: 0.35rem;">
+                            <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="login-password" placeholder="••••••••" required>
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('login-password', this)" title="Toggle password visibility"></i>
+                            </div>
                         </div>
                         <div style="display: flex; justify-content: flex-end; margin-bottom: 1.25rem;">
-                            <a href="javascript:void(0)" onclick="openForgotPasswordModal()" style="font-size: 0.85rem; color: var(--accent-blue); font-weight: 500; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Forgot Password?</a>
+                            <a href="javascript:void(0)" onclick="openForgotPasswordModal()" class="forgot-pwd-link">Forgot Password?</a>
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fa-solid fa-key"></i> Authenticate & Enter
                         </button>
+
+                        <!-- Security Trust Indicator -->
+                        <div class="security-trust-indicator">
+                            <div class="trust-badge-items">
+                                <span class="trust-item"><i class="fa-solid fa-shield-halved trust-icon"></i> Secure authentication</span>
+                                <span class="trust-dot">•</span>
+                                <span class="trust-item"><i class="fa-solid fa-lock trust-icon"></i> Encrypted file vault</span>
+                                <span class="trust-dot">•</span>
+                                <span class="trust-item"><i class="fa-solid fa-circle-check trust-icon"></i> Protected access</span>
+                            </div>
+                            <p class="trust-note">Your files remain protected with encrypted storage and controlled access.</p>
+                        </div>
                     </form>
 
                     <!-- Register Form -->
@@ -120,50 +137,50 @@
                         <p class="subtitle">Join the secure zero-trust file sharing platform</p>
                         
                         <div class="form-group">
-                            <label><i class="fa-solid fa-user"></i> Full Name</label>
+                            <label for="reg-name"><i class="fa-solid fa-user"></i> Full Name</label>
                             <input type="text" id="reg-name" placeholder="John Doe" required>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+                            <label for="reg-email"><i class="fa-solid fa-envelope"></i> Email Address</label>
                             <input type="email" id="reg-email" placeholder="john@example.com" required>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-at"></i> Username (Optional)</label>
+                            <label for="reg-username"><i class="fa-solid fa-at"></i> Username (Optional)</label>
                             <input type="text" id="reg-username" placeholder="johndoe">
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-lock"></i> Password</label>
+                            <label for="reg-password"><i class="fa-solid fa-lock"></i> Password</label>
                             <div class="password-input-wrapper">
                                 <input type="password" id="reg-password" placeholder="Enter secure password" required oninput="checkRegPasswordStrength(this.value)">
-                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-password', this)"></i>
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-password', this)" title="Toggle password visibility"></i>
                             </div>
                             <div class="strength-meter-container" style="margin-top: 0.5rem;">
                                 <div class="strength-bar"><div id="reg-strength-bar-fill" class="strength-fill"></div></div>
                                 <span id="reg-strength-label" class="strength-text">Password Strength</span>
                             </div>
-                            <ul class="pwd-checklist" id="reg-pwd-checklist" style="margin-top: 0.5rem; font-size: 0.8rem; list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 0.25rem;">
-                                <li id="reg-chk-length"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> Minimum 8 characters</li>
-                                <li id="reg-chk-upper"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 uppercase letter (A-Z)</li>
-                                <li id="reg-chk-lower"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 lowercase letter (a-z)</li>
-                                <li id="reg-chk-number"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 number (0-9)</li>
-                                <li id="reg-chk-special"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-red)"></i> At least 1 special character (!@#$%^&*)</li>
+                            <ul class="pwd-checklist" id="reg-pwd-checklist" style="margin-top: 0.5rem; font-size: 0.8rem; list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                                <li id="reg-chk-length"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-error)"></i> Minimum 8 characters</li>
+                                <li id="reg-chk-upper"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-error)"></i> At least 1 uppercase letter (A-Z)</li>
+                                <li id="reg-chk-lower"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-error)"></i> At least 1 lowercase letter (a-z)</li>
+                                <li id="reg-chk-number"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-error)"></i> At least 1 number (0-9)</li>
+                                <li id="reg-chk-special"><i class="fa-solid fa-circle-xmark" style="color:var(--accent-error)"></i> At least 1 special character (!@#$%^&*)</li>
                             </ul>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-shield"></i> Confirm Password</label>
+                            <label for="reg-confirm-password"><i class="fa-solid fa-shield"></i> Confirm Password</label>
                             <div class="password-input-wrapper">
                                 <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required oninput="checkRegPasswordMatch()">
-                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-confirm-password', this)"></i>
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('reg-confirm-password', this)" title="Toggle password visibility"></i>
                             </div>
                             <div id="reg-pwd-match-msg" style="font-size: 0.78rem; margin-top: 0.25rem; display: none;"></div>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-user-shield"></i> Account Role</label>
+                            <label for="reg-role"><i class="fa-solid fa-user-shield"></i> Account Role</label>
                             <select id="reg-role">
                                 <option value="USER">Standard User</option>
                                 <option value="ADMIN">System Admin</option>
@@ -173,6 +190,18 @@
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fa-solid fa-user-plus"></i> Register & Encrypt
                         </button>
+
+                        <!-- Security Trust Indicator -->
+                        <div class="security-trust-indicator">
+                            <div class="trust-badge-items">
+                                <span class="trust-item"><i class="fa-solid fa-shield-halved trust-icon"></i> Enterprise Grade</span>
+                                <span class="trust-dot">•</span>
+                                <span class="trust-item"><i class="fa-solid fa-lock trust-icon"></i> AES-256 Vault</span>
+                                <span class="trust-dot">•</span>
+                                <span class="trust-item"><i class="fa-solid fa-circle-check trust-icon"></i> Zero-Trust Access</span>
+                            </div>
+                            <p class="trust-note">Your files remain protected with encrypted storage and controlled access.</p>
+                        </div>
                     </form>
                 </div>
             </section>
@@ -930,10 +959,10 @@
             <div class="modal-body">
                 <!-- Step 1: Request OTP -->
                 <div id="forgot-step-1">
-                    <p class="subtext" style="margin-bottom: 1rem;">Enter your registered Email or Username. We'll send a 6-digit OTP code to your official email to reset your password.</p>
+                    <p class="subtext" style="margin-bottom: 1.25rem; line-height: 1.45;">Enter your registered Email or Username. We'll send a 6-digit OTP code to your official email to reset your password.</p>
                     <form onsubmit="submitForgotPasswordRequest(event)">
                         <div class="form-group">
-                            <label><i class="fa-solid fa-envelope"></i> Email or Username</label>
+                            <label for="forgot-email-input"><i class="fa-solid fa-envelope"></i> Email or Username</label>
                             <input type="text" id="forgot-email-input" placeholder="Enter your email or username" required>
                         </div>
                         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
@@ -945,24 +974,30 @@
 
                 <!-- Step 2: Verify OTP & New Password -->
                 <div id="forgot-step-2" style="display: none;">
-                    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.85rem; border-radius: 8px; margin-bottom: 1.25rem;">
-                        <span style="font-size: 0.85rem; color: #4ade80;"><i class="fa-solid fa-circle-check"></i> <span id="forgot-masked-email-text">OTP sent to official email</span></span>
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 0.85rem; border-radius: 8px; margin-bottom: 1.25rem;">
+                        <span style="font-size: 0.85rem; color: #15803D; font-weight: 500;"><i class="fa-solid fa-circle-check"></i> <span id="forgot-masked-email-text">OTP sent to official email</span></span>
                     </div>
 
                     <form onsubmit="submitResetPasswordForm(event)">
                         <div class="form-group">
-                            <label><i class="fa-solid fa-key"></i> 6-Digit OTP Code</label>
-                            <input type="text" id="forgot-otp-input" placeholder="Enter 6-digit OTP code" maxlength="6" pattern="[0-9]{6}" required style="letter-spacing: 2px; font-weight: 700; font-size: 1.1rem; text-align: center;">
+                            <label for="forgot-otp-input"><i class="fa-solid fa-key"></i> 6-Digit OTP Code</label>
+                            <input type="text" id="forgot-otp-input" placeholder="Enter 6-digit OTP code" maxlength="6" pattern="[0-9]{6}" required style="letter-spacing: 3px; font-weight: 700; font-size: 1.1rem; text-align: center;">
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-lock"></i> New Password</label>
-                            <input type="password" id="forgot-new-password" placeholder="Minimum 8 characters" required>
+                            <label for="forgot-new-password"><i class="fa-solid fa-lock"></i> New Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="forgot-new-password" placeholder="Minimum 8 characters" required>
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('forgot-new-password', this)" title="Toggle password visibility"></i>
+                            </div>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fa-solid fa-check-double"></i> Confirm New Password</label>
-                            <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" required>
+                            <label for="forgot-confirm-password"><i class="fa-solid fa-check-double"></i> Confirm New Password</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" required>
+                                <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('forgot-confirm-password', this)" title="Toggle password visibility"></i>
+                            </div>
                         </div>
 
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
