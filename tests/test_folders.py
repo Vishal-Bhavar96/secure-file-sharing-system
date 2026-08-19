@@ -1,5 +1,4 @@
 import io
-import pytest
 
 def test_create_folder(client, token_user_a):
     res = client.post(

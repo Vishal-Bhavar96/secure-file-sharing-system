@@ -1,0 +1,9 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+  "python.analysis.extraPaths": [
+    "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages"
+  ],
+  "python.autoComplete.extraPaths": [
+    "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages"
+  ]
+}

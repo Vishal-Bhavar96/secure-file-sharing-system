@@ -1,4 +1,3 @@
-import pytest
 import io
 
 def test_soft_delete_and_recycle_bin(client, token_user_a):

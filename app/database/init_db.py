@@ -37,6 +37,8 @@ def migrate_schema():
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN is_active BOOLEAN DEFAULT 1"))
                 if "updated_at" not in share_cols:
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN updated_at DATETIME"))
+                if "recipient_email" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN recipient_email VARCHAR(255)"))
                 if "requires_otp" not in share_cols:
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN requires_otp BOOLEAN DEFAULT 1"))
                 if "otp_code_hash" not in share_cols:

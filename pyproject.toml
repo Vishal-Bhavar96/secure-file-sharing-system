@@ -1,0 +1,7 @@
+[tool.pyrefly]
+python-interpreter-path = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\python.exe"
+site-package-path = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages"
+search-path = [".", "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages"]
+
+[tool.pyrefly.errors]
+missing-import = false
