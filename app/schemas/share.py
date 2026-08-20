@@ -13,7 +13,7 @@ class ShareCreateRequest(BaseModel):
     max_downloads: Optional[int] = Field(None, ge=1, description="Maximum download count allowed")
     download_limit: Optional[int] = Field(None, ge=1, description="Maximum download count allowed (alias)")
     password: Optional[str] = Field(None, description="Optional separate share password")
-    requires_otp: Optional[bool] = Field(True, description="Require 6-digit OTP verification")
+    requires_otp: Optional[bool] = Field(False, description="Require 6-digit OTP verification")
     requires_password: Optional[bool] = Field(False, description="Require separate share password")
     one_time_access: Optional[bool] = Field(False, description="Auto-revoke share link after 1 successful download")
 
@@ -66,7 +66,7 @@ class ShareOut(BaseModel):
     share_token: Optional[str] = None
     share_url: Optional[str] = None
     has_password: bool = False
-    requires_otp: bool = True
+    requires_otp: bool = False
     requires_password: bool = False
     one_time_access: bool = False
     otp_verified: bool = False

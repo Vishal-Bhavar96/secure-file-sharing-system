@@ -140,7 +140,7 @@ def share_file(
             )
 
     share_out.email_sent = email_sent
-    share_out.message = "File shared securely!" if email_sent else "File shared securely! (Email notification pending SMTP configuration)"
+    share_out.message = "File shared securely!" if email_sent else "Share link created successfully!"
     return share_out
 
 @router.post("/{share_id}/resend", response_model=dict)

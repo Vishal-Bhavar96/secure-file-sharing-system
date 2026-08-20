@@ -613,41 +613,60 @@ function selectUserSearchItem(email) {
 function openShareModal(id, name) {
     document.getElementById('share-file-id').value = id;
     document.getElementById('share-file-name').textContent = name;
-    document.getElementById('share-recipient').value = '';
+    if (document.getElementById('share-recipient')) document.getElementById('share-recipient').value = '';
     document.getElementById('share-permission').value = 'DOWNLOAD';
     document.getElementById('share-expiry-preset-select').value = '24';
     document.getElementById('share-expiry-hours').value = '24';
-    setDownloadPreset(1, document.querySelector('.download-preset-btn'));
     
-    document.getElementById('share-requires-otp').checked = true;
+    // Default download limit to Unlimited
+    const presetBtns = document.querySelectorAll('.download-preset-btn');
+    if (presetBtns && presetBtns.length >= 4) {
+        setDownloadPreset(null, presetBtns[3]);
+    } else if (presetBtns && presetBtns.length > 0) {
+        setDownloadPreset(null, presetBtns[0]);
+    }
+    
     const reqPwdCheckbox = document.getElementById('share-requires-password');
-    reqPwdCheckbox.checked = true;
-    document.getElementById('share-one-time-access').checked = false;
-    
-    toggleSharePasswordVisibility(true);
-    generateAndSetSharePassword();
+    if (reqPwdCheckbox) {
+        reqPwdCheckbox.checked = false;
+        toggleSharePasswordVisibility(false);
+    }
+    const pwdInput = document.getElementById('share-password');
+    if (pwdInput) pwdInput.value = '';
+
+    const customDateContainer = document.getElementById('share-custom-date-container');
+    if (customDateContainer) customDateContainer.style.display = 'none';
 
     document.getElementById('share-result-container').style.display = 'none';
+    const submitBtn = document.getElementById('btn-submit-share');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Create Share Link';
+        submitBtn.disabled = false;
+    }
     document.getElementById('modal-share').classList.add('active');
 }
 
 async function submitShareForm() {
     const file_id = parseInt(document.getElementById('share-file-id').value);
-    const target_user_identifier = document.getElementById('share-recipient').value.trim();
+    const target_user_identifier = document.getElementById('share-recipient') ? document.getElementById('share-recipient').value.trim() : '';
     const permission = document.getElementById('share-permission').value;
     
     let expiry_hours = document.getElementById('share-expiry-hours').value ? parseInt(document.getElementById('share-expiry-hours').value) : null;
     let expiry_date = null;
-    const customDateVal = document.getElementById('share-custom-date-input').value;
-    if (customDateVal) {
-        expiry_date = new Date(customDateVal).toISOString();
+    const customDateInput = document.getElementById('share-custom-date-input');
+    if (customDateInput && customDateInput.value) {
+        expiry_date = new Date(customDateInput.value).toISOString();
     }
 
     const max_downloads = document.getElementById('share-max-downloads').value ? parseInt(document.getElementById('share-max-downloads').value) : null;
-    const requires_otp = document.getElementById('share-requires-otp').checked;
-    const requires_password = document.getElementById('share-requires-password').checked;
-    const one_time_access = document.getElementById('share-one-time-access').checked;
+    const requires_password = document.getElementById('share-requires-password') ? document.getElementById('share-requires-password').checked : false;
     const password = requires_password ? (document.getElementById('share-password').value || null) : null;
+
+    const submitBtn = document.getElementById('btn-submit-share');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+    }
 
     try {
         const res = await fetch(`${API_BASE}/shares`, {
@@ -664,9 +683,9 @@ async function submitShareForm() {
                 expiry_date,
                 max_downloads,
                 password,
-                requires_otp,
+                requires_otp: false,
                 requires_password,
-                one_time_access
+                one_time_access: false
             })
         });
 
@@ -682,18 +701,19 @@ async function submitShareForm() {
         document.getElementById('share-generated-url').value = lastGeneratedShareUrl;
         document.getElementById('share-result-container').style.display = 'block';
 
-        if (data.generated_password) {
+        if (data.generated_password && document.getElementById('share-password')) {
             document.getElementById('share-password').value = data.generated_password;
         }
 
-        let validityMsg = data.message || 'File shared securely!';
-        if (data.email_sent === true) {
-            validityMsg += ' Notification email dispatched.';
-        }
-        showToast(validityMsg, data.email_sent === false ? 'info' : 'success');
+        showToast(data.message || 'Share link created successfully!', 'success');
         loadSharedFiles();
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Create Share Link';
+        }
     }
 }
 
@@ -1123,11 +1143,12 @@ function renderRecipientVerificationStep() {
                 </div>
             </div>
 
+            ${share.requires_otp ? `
             <!-- Stepper Progress Bar -->
             <div class="stepper-container">
                 <div class="stepper-step completed">
                     <div class="stepper-circle"><i class="fa-solid fa-check"></i></div>
-                    <span class="stepper-label">Step 1: Email ✓</span>
+                    <span class="stepper-label">Step 1: Link ✓</span>
                 </div>
 
                 <div class="stepper-line ${step2Done ? 'active' : ''}"></div>
@@ -1143,7 +1164,8 @@ function renderRecipientVerificationStep() {
                     <div class="stepper-circle">${step3Done ? '<i class="fa-solid fa-check"></i>' : '3'}</div>
                     <span class="stepper-label">Step 3: Password</span>
                 </div>
-            </div>
+            </div>` : ''}
+        </div>
     `;
 
     // Render active step view

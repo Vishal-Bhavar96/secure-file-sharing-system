@@ -31,7 +31,7 @@ class FileShare(Base):
     share_token = Column(String(100), unique=True, index=True, nullable=True, default=generate_share_token)
     token_hash = Column(String(255), unique=True, index=True, nullable=True)
     password_hash = Column(String(255), nullable=True)
-    requires_otp = Column(Boolean, default=True, nullable=False)
+    requires_otp = Column(Boolean, default=False, nullable=False)
     otp_code_hash = Column(String(255), nullable=True)
     otp_expires_at = Column(DateTime, nullable=True)
     otp_attempts = Column(Integer, default=0, nullable=False)
