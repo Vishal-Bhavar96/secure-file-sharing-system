@@ -14,6 +14,10 @@ class SharePermission(str, enum.Enum):
 def generate_share_token():
     return secrets.token_urlsafe(32)
 
+def generate_share_code(length: int = 6) -> str:
+    alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
 def hash_token(raw_token: str) -> str:
     if not raw_token:
         return ""
@@ -29,6 +33,7 @@ class FileShare(Base):
     recipient_email = Column(String(255), nullable=True)
     permission = Column(Enum(SharePermission), default=SharePermission.DOWNLOAD, nullable=False)
     share_token = Column(String(100), unique=True, index=True, nullable=True, default=generate_share_token)
+    share_code = Column(String(20), unique=True, index=True, nullable=True, default=generate_share_code)
     token_hash = Column(String(255), unique=True, index=True, nullable=True)
     password_hash = Column(String(255), nullable=True)
     requires_otp = Column(Boolean, default=False, nullable=False)

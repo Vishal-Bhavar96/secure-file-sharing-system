@@ -64,6 +64,7 @@ class ShareOut(BaseModel):
     shared_with_last_seen: str = "Offline"
     permission: SharePermission
     share_token: Optional[str] = None
+    share_code: Optional[str] = None
     share_url: Optional[str] = None
     has_password: bool = False
     requires_otp: bool = False

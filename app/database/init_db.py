@@ -31,6 +31,8 @@ def migrate_schema():
             if share_cols:
                 if "share_token" not in share_cols:
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN share_token VARCHAR(100)"))
+                if "share_code" not in share_cols:
+                    conn.execute(text("ALTER TABLE file_shares ADD COLUMN share_code VARCHAR(20)"))
                 if "password_hash" not in share_cols:
                     conn.execute(text("ALTER TABLE file_shares ADD COLUMN password_hash VARCHAR(255)"))
                 if "is_active" not in share_cols:

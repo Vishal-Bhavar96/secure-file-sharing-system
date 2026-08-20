@@ -698,14 +698,21 @@ async function submitShareForm() {
         if (!res.ok) throw new Error(data.detail || 'Share creation failed');
 
         lastGeneratedShareUrl = data.share_url || `${window.location.origin}/#share/${data.share_token}`;
-        document.getElementById('share-generated-url').value = lastGeneratedShareUrl;
+        lastGeneratedShareCode = data.share_code || (data.share_token ? data.share_token.slice(0, 6).toUpperCase() : '');
+
+        const urlInput = document.getElementById('share-generated-url');
+        if (urlInput) urlInput.value = lastGeneratedShareUrl;
+
+        const codeBadge = document.getElementById('share-generated-code');
+        if (codeBadge) codeBadge.textContent = lastGeneratedShareCode || '------';
+
         document.getElementById('share-result-container').style.display = 'block';
 
         if (data.generated_password && document.getElementById('share-password')) {
             document.getElementById('share-password').value = data.generated_password;
         }
 
-        showToast(data.message || 'Share link created successfully!', 'success');
+        showToast(data.message || 'Share link and code created successfully!', 'success');
         loadSharedFiles();
     } catch (err) {
         showToast(err.message, 'error');
@@ -717,12 +724,43 @@ async function submitShareForm() {
     }
 }
 
+let lastGeneratedShareCode = '';
+
+function copyShareGeneratedCode() {
+    if (lastGeneratedShareCode) {
+        navigator.clipboard.writeText(lastGeneratedShareCode);
+        showToast(`Share Code "${lastGeneratedShareCode}" copied!`, 'success');
+    } else {
+        showToast('No share code available to copy', 'error');
+    }
+}
+
 function copyShareGeneratedLink() {
     const urlInput = document.getElementById('share-generated-url');
     if (urlInput && urlInput.value) {
         navigator.clipboard.writeText(urlInput.value);
         showToast('Share link copied to clipboard!', 'success');
     }
+}
+
+function openEnterCodeModal() {
+    const input = document.getElementById('enter-share-code-input');
+    if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 150);
+    }
+    document.getElementById('modal-enter-code').classList.add('active');
+}
+
+function submitEnterCodeForm(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('enter-share-code-input');
+    if (!input || !input.value.trim()) return;
+
+    const code = input.value.trim();
+    closeModal('modal-enter-code');
+    window.location.hash = `#share/${encodeURIComponent(code)}`;
+    openTokenShareView(code);
 }
 
 function showShareQRCode() {

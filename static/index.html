@@ -23,7 +23,10 @@
                 <span class="logo-text">SecureShare <span class="badge">AES-256</span></span>
             </div>
             
-            <div class="nav-actions" id="nav-actions">
+            <div class="nav-actions" id="nav-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="openEnterCodeModal()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); font-weight: 600;">
+                    <i class="fa-solid fa-key text-primary"></i> <span>Enter Code</span>
+                </button>
                 <div class="account-control-container" id="account-control-container" style="display:none; position: relative;">
                     <div class="account-dropdown-trigger" id="account-dropdown-trigger" onclick="toggleAccountDropdown(event)">
                         <div class="avatar-wrapper">
@@ -516,15 +519,26 @@
                     <input type="hidden" id="share-requires-otp" value="false">
                     <input type="hidden" id="share-one-time-access" value="false">
 
-                    <!-- Share Result Container (Link Generated) -->
-                    <div id="share-result-container" style="display:none; padding: 0.75rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border: 1px solid rgba(37, 99, 235, 0.25);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                            <span style="color: var(--action-primary, #2563eb); font-weight: 600; font-size: 0.8rem;"><i class="fa-solid fa-circle-check text-success"></i> Share Link Ready</span>
+                    <!-- Share Result Container (Link & Code Generated) -->
+                    <div id="share-result-container" style="display:none; padding: 0.85rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; border: 1px solid rgba(37, 99, 235, 0.25);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span style="color: var(--action-primary, #2563eb); font-weight: 700; font-size: 0.82rem;"><i class="fa-solid fa-circle-check text-success"></i> File Shared Successfully!</span>
                         </div>
+                        
+                        <!-- Share Code Badge & Copy -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Share Code:</span>
+                                <span id="share-generated-code" style="font-family: monospace; font-weight: 800; font-size: 0.95rem; color: var(--action-primary, #2563eb); letter-spacing: 1px;">------</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="copyShareGeneratedCode()" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;"><i class="fa-solid fa-copy"></i> Copy Code</button>
+                        </div>
+
+                        <!-- Full Share Link -->
                         <div style="display: flex; gap: 0.35rem;">
                             <input type="text" id="share-generated-url" readonly style="flex: 1; font-family: monospace; font-size: 0.78rem; padding: 0.4rem 0.55rem; background: var(--bg-primary);">
-                            <button type="button" class="btn btn-sm btn-primary" onclick="copyShareGeneratedLink()" style="padding: 0.4rem 0.65rem; white-space: nowrap;"><i class="fa-solid fa-copy"></i> Copy</button>
-                            <button type="button" class="btn btn-sm btn-outline" onclick="showShareQRCode()" style="padding: 0.4rem 0.55rem;"><i class="fa-solid fa-qrcode"></i></button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="copyShareGeneratedLink()" style="padding: 0.4rem 0.65rem; white-space: nowrap;"><i class="fa-solid fa-link"></i> Copy Link</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="showShareQRCode()" style="padding: 0.4rem 0.55rem;" title="View QR Code"><i class="fa-solid fa-qrcode"></i></button>
                         </div>
                     </div>
                 </div>
@@ -532,6 +546,23 @@
                 <div class="modal-footer" style="margin-top: 0.75rem; padding-top: 0.65rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
                     <button class="btn btn-outline btn-sm" onclick="closeModal('modal-share')">Cancel</button>
                     <button class="btn btn-primary btn-sm" id="btn-submit-share" onclick="submitShareForm()"><i class="fa-solid fa-link"></i> Create Share Link</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enter Share Code Modal -->
+        <div id="modal-enter-code" class="modal">
+            <div class="modal-content glass-panel" style="max-width: 380px; width: 92%; padding: 1.25rem; text-align: center;">
+                <div class="modal-header" style="margin-bottom: 0.85rem; padding-bottom: 0.6rem;">
+                    <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;"><i class="fa-solid fa-key text-primary"></i> Access Shared File</h3>
+                    <button class="modal-close" onclick="closeModal('modal-enter-code')">&times;</button>
+                </div>
+                <div class="modal-body" style="gap: 0.85rem;">
+                    <p class="subtext" style="font-size: 0.82rem; margin: 0;">Enter the 6-character Share Code or Token to open and download the file directly:</p>
+                    <form onsubmit="submitEnterCodeForm(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <input type="text" id="enter-share-code-input" placeholder="e.g. 7K9F2A" maxlength="64" required style="font-family: monospace; font-size: 1.15rem; font-weight: 700; letter-spacing: 2px; text-align: center; text-transform: uppercase; padding: 0.55rem 0.75rem; background: var(--bg-primary);">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-arrow-right-to-bracket"></i> Open Shared File</button>
+                    </form>
                 </div>
             </div>
         </div>

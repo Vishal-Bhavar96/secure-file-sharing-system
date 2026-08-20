@@ -29,6 +29,17 @@ from app.routes.users import is_user_online, compute_last_seen_text
 
 router = APIRouter(prefix="/shares", tags=["File Sharing"])
 
+def find_share_by_token_or_code(db: Session, token_or_code: str) -> Optional[FileShare]:
+    if not token_or_code:
+        return None
+    clean = token_or_code.strip()
+    th = hash_token(clean)
+    return db.query(FileShare).filter(
+        (FileShare.token_hash == th) | 
+        (FileShare.share_token == clean) | 
+        (FileShare.share_code == clean.upper())
+    ).first()
+
 def build_share_out(
     s: FileShare,
     request: Optional[Request] = None,
@@ -50,6 +61,7 @@ def build_share_out(
     # Construct public share URL using PUBLIC_APP_URL configuration
     base_url = settings.PUBLIC_APP_URL.rstrip('/') if getattr(settings, 'PUBLIC_APP_URL', None) else (str(request.base_url).rstrip('/') if request else "http://localhost:8000")
     share_url = f"{base_url}/#share/{s.share_token}" if s.share_token else None
+    share_code = getattr(s, 'share_code', None) or (s.share_token[:6].upper() if s.share_token else None)
 
     recipient_email = s.recipient_email or shared_with_email
     generated_pwd = getattr(s, '_generated_password', None)
@@ -72,6 +84,7 @@ def build_share_out(
         recipient_email=recipient_email,
         permission=s.permission,
         share_token=s.share_token,
+        share_code=share_code,
         share_url=share_url,
         has_password=bool(s.password_hash or s.requires_password),
         requires_otp=s.requires_otp,
@@ -208,8 +221,7 @@ def trigger_share_otp(
 ):
     ip = request.client.host if request.client else None
     if share_token:
-        th = hash_token(share_token)
-        share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+        share = find_share_by_token_or_code(db, share_token)
     else:
         share = db.query(FileShare).filter(FileShare.id == share_id).first()
 
@@ -240,8 +252,7 @@ def verify_share_otp_endpoint(
 ):
     ip = request.client.host if request.client else None
     if share_token:
-        th = hash_token(share_token)
-        share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+        share = find_share_by_token_or_code(db, share_token)
     else:
         share = db.query(FileShare).filter(FileShare.id == share_id).first()
 
@@ -262,8 +273,7 @@ def verify_share_password_endpoint(
 ):
     ip = request.client.host if request.client else None
     if share_token:
-        th = hash_token(share_token)
-        share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+        share = find_share_by_token_or_code(db, share_token)
     else:
         share = db.query(FileShare).filter(FileShare.id == share_id).first()
 
@@ -304,10 +314,7 @@ def get_token_share_info(
     db: Session = Depends(get_db)
 ):
     ip = request.client.host if request.client else None
-    th = hash_token(share_token)
-    share = db.query(FileShare).filter(
-        (FileShare.token_hash == th) | (FileShare.share_token == share_token)
-    ).first()
+    share = find_share_by_token_or_code(db, share_token)
 
     if not share:
         log_activity(
@@ -320,7 +327,7 @@ def get_token_share_info(
             success=False,
             ip_address=ip
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share link")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share link or code")
 
     log_activity(
         db,
@@ -362,10 +369,9 @@ def verify_token_share_password(
     db: Session = Depends(get_db)
 ):
     ip = request.client.host if request.client else None
-    th = hash_token(share_token)
-    share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+    share = find_share_by_token_or_code(db, share_token)
     if not share:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token or code")
 
     pwd_verified = False
     if verify_in.password:
@@ -383,10 +389,9 @@ def download_by_token(
     db: Session = Depends(get_db)
 ):
     ip = request.client.host if request.client else None
-    th = hash_token(share_token)
-    share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+    share = find_share_by_token_or_code(db, share_token)
     if not share:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token or code")
 
     # Validate all 11 security conditions
     share, db_file = get_share_access_and_validate(
@@ -412,10 +417,9 @@ def view_by_token(
     db: Session = Depends(get_db)
 ):
     ip = request.client.host if request.client else None
-    th = hash_token(share_token)
-    share = db.query(FileShare).filter((FileShare.token_hash == th) | (FileShare.share_token == share_token)).first()
+    share = find_share_by_token_or_code(db, share_token)
     if not share:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token or code")
 
     share, db_file = get_share_access_and_validate(
         db, share_id=share.id, required_permission=SharePermission.VIEW,

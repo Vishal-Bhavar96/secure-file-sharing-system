@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 
 from app.models.file import File
 from app.models.user import User
-from app.models.share import FileShare, SharePermission, generate_share_token, hash_token
+from app.models.share import FileShare, SharePermission, generate_share_token, generate_share_code, hash_token
 from app.models.audit_log import AuditAction
 from app.schemas.share import ShareCreateRequest, ShareUpdateRequest
 from app.services.audit_service import log_activity
@@ -132,6 +132,7 @@ def create_file_share(
         ).first()
 
     raw_token = generate_share_token()
+    raw_code = generate_share_code()
     token_h = hash_token(raw_token)
 
     requires_otp = share_in.requires_otp if share_in.requires_otp is not None else False
@@ -151,6 +152,8 @@ def create_file_share(
         if not existing_share.share_token:
             existing_share.share_token = raw_token
             existing_share.token_hash = token_h
+        if not getattr(existing_share, 'share_code', None):
+            existing_share.share_code = raw_code
         existing_share.is_active = True
         db.commit()
         db.refresh(existing_share)
@@ -163,6 +166,7 @@ def create_file_share(
             recipient_email=target_email or (target_user.email if target_user else None),
             permission=share_in.permission,
             share_token=raw_token,
+            share_code=raw_code,
             token_hash=token_h,
             password_hash=pwd_hash,
             requires_otp=requires_otp,
@@ -524,9 +528,12 @@ def get_share_by_token(
     ip_address: str = None
 ) -> Tuple[FileShare, File]:
 
-    th = hash_token(token)
+    clean_token = token.strip() if token else ""
+    th = hash_token(clean_token)
     share = db.query(FileShare).filter(
-        (FileShare.token_hash == th) | (FileShare.share_token == token)
+        (FileShare.token_hash == th) | 
+        (FileShare.share_token == clean_token) |
+        (FileShare.share_code == clean_token.upper())
     ).first()
 
     if not share:
