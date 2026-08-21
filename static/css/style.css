@@ -1512,4 +1512,174 @@ body.light-theme .account-dropdown-menu {
     }
 }
 
+/* =========================================================
+   Online File / Document Previewer Component Styles
+========================================================= */
+.modal-xl .modal-content {
+    max-width: 960px;
+    width: 95%;
+}
+
+.preview-modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.preview-modal-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.preview-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 4px;
+}
+
+/* Document Paper Sheet for Word Documents (.docx) */
+.docx-sheet-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0;
+}
+
+.docx-document-sheet {
+    background: #FFFFFF;
+    color: #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 2.5rem 3rem;
+    max-width: 820px;
+    width: 100%;
+    min-height: 500px;
+    line-height: 1.7;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 0.95rem;
+}
+
+.docx-document-sheet h2.docx-heading-1 {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 1.5rem 0 0.75rem 0;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.4rem;
+}
+
+.docx-document-sheet h3.docx-heading-2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 1.25rem 0 0.5rem 0;
+}
+
+.docx-document-sheet h4.docx-heading-3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 1rem 0 0.4rem 0;
+}
+
+.docx-document-sheet p.docx-paragraph {
+    margin: 0.6rem 0;
+    color: #334155;
+    word-break: break-word;
+}
+
+.docx-document-sheet li.docx-list-item {
+    margin-left: 1.5rem;
+    margin-bottom: 0.35rem;
+    color: #334155;
+}
+
+.docx-document-sheet table.docx-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.88rem;
+}
+
+.docx-document-sheet table.docx-table th,
+.docx-document-sheet table.docx-table td {
+    border: 1px solid #cbd5e1;
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+}
+
+.docx-document-sheet table.docx-table th {
+    background: #f1f5f9;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Image Preview */
+.preview-image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    min-height: 320px;
+}
+
+.preview-image-container img {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    object-fit: contain;
+}
+
+/* PDF Preview Frame */
+.preview-pdf-frame {
+    width: 100%;
+    height: 72vh;
+    border: none;
+    border-radius: 8px;
+    background: #FFFFFF;
+}
+
+/* Text / Code Preview */
+.preview-code-wrapper {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 1.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #e2e8f0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Media Player */
+.preview-media-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    gap: 1.5rem;
+}
+
+.preview-media-container video {
+    max-width: 100%;
+    max-height: 65vh;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.preview-media-container audio {
+    width: 100%;
+    max-width: 480px;
+}
+
+/* Unsupported notice card */
+.preview-unsupported-card {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    max-width: 440px;
+    margin: 0 auto;
+}
+
 

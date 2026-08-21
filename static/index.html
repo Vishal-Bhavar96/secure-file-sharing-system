@@ -654,6 +654,37 @@
             </div>
         </div>
 
+        <!-- Online Document / File Previewer Modal -->
+        <div id="modal-file-preview" class="modal modal-xl">
+            <div class="modal-content glass-panel preview-modal-content" style="max-width: 960px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+                <div class="modal-header preview-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem; overflow: hidden;">
+                        <i id="preview-modal-icon" class="fa-solid fa-file-lines text-primary" style="font-size: 1.3rem; flex-shrink: 0;"></i>
+                        <div style="min-width: 0;">
+                            <h3 id="preview-modal-title" style="margin: 0; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">filename.ext</h3>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem;">
+                                <span id="preview-modal-size" class="badge" style="font-size: 0.72rem;">0 KB</span>
+                                <span id="preview-modal-type-badge" class="badge badge-success" style="font-size: 0.72rem;"><i class="fa-solid fa-eye"></i> Online Document View</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="closeModal('modal-file-preview')">&times;</button>
+                </div>
+                <div class="modal-body preview-modal-body" id="preview-modal-body" style="flex: 1; overflow-y: auto; padding: 1rem; min-height: 380px; max-height: calc(92vh - 140px); background: var(--bg-secondary, #0b1120); border-radius: 8px;">
+                    <!-- Dynamically populated via JS -->
+                </div>
+                <div class="modal-footer preview-modal-footer" id="preview-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-color); margin-top: 0.5rem;">
+                    <div id="preview-footer-info" style="font-size: 0.82rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-shield-halved text-success"></i> Decrypted in-memory for secure browser viewing
+                    </div>
+                    <div style="display: flex; gap: 0.6rem; align-items: center;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="closeModal('modal-file-preview')">Close</button>
+                        <button type="button" id="preview-modal-download-btn" class="btn btn-sm btn-primary"><i class="fa-solid fa-download"></i> Download File</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Token Share Recipient Access Modal -->
         <div id="modal-token-share" class="modal">
             <div class="modal-content glass-panel" style="max-width: 550px; width: 92%;">

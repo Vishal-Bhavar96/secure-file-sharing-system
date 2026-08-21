@@ -329,6 +329,7 @@ async function loadUserFiles() {
                         <td>${new Date(file.created_at).toLocaleString()}</td>
                         <td>
                             <div class="demo-btn-group">
+                                <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${file.id}, '${jsEscapedName}')" title="View / Preview Online"><i class="fa-solid fa-eye"></i></button>
                                 <button class="btn btn-sm btn-outline" onclick="downloadFile(${file.id}, '${jsEscapedName}')" title="Download & Decrypt"><i class="fa-solid fa-download"></i></button>
                                 <button class="btn btn-sm btn-outline" onclick="openShareModal(${file.id}, '${jsEscapedName}')" title="Share Access"><i class="fa-solid fa-share-nodes"></i></button>
                                 <button class="btn btn-sm btn-outline" onclick="openMoveModal(${file.id}, '${jsEscapedName}', '${jsEscapedFolder}')" title="Move File"><i class="fa-solid fa-folder-tree"></i></button>
@@ -1280,10 +1281,6 @@ function renderRecipientVerificationStep() {
         `;
     } else {
         // Access Granted!
-        const pwdParam = state.passwordInput ? `?password=${encodeURIComponent(state.passwordInput)}&otp_verified=true` : `?otp_verified=true`;
-        const downloadUrl = `${API_BASE}/shares/token/${state.token}/download${pwdParam}`;
-        const viewUrl = `${API_BASE}/shares/token/${state.token}/view${pwdParam}`;
-
         const canDownload = share.permission !== 'VIEW' && !share.is_expired;
 
         html += `
@@ -1295,10 +1292,10 @@ function renderRecipientVerificationStep() {
                 </p>
 
                 <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
-                    <a href="${viewUrl}" target="_blank" class="btn btn-outline"><i class="fa-solid fa-eye"></i> View File</a>
+                    <button type="button" class="btn btn-outline" onclick="openTokenShareFilePreview()"><i class="fa-solid fa-eye"></i> View File Online</button>
                     ${canDownload ? 
-                        `<a href="${downloadUrl}" class="btn btn-primary" download><i class="fa-solid fa-download"></i> Download File</a>` : 
-                        `<button class="btn btn-outline" disabled><i class="fa-solid fa-lock"></i> Download Restricted (View Only)</button>`}
+                        `<button type="button" class="btn btn-primary" onclick="downloadTokenSharedFile()"><i class="fa-solid fa-download"></i> Download File</button>` : 
+                        `<button type="button" class="btn btn-outline" disabled style="opacity: 0.7;"><i class="fa-solid fa-lock"></i> Download Restricted (View Only)</button>`}
                 </div>
             </div>
         `;
@@ -2465,3 +2462,199 @@ async function submitResetPasswordForm(e) {
         showToast(err.message, 'error');
     }
 }
+
+// ==========================================
+// Online Document / File Previewer System
+// ==========================================
+
+function getFileIconClass(filename) {
+    const ext = (filename || '').split('.').pop().toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'fa-file-image text-primary';
+    if (ext === 'pdf') return 'fa-file-pdf text-danger';
+    if (['doc', 'docx'].includes(ext)) return 'fa-file-word text-primary';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel text-success';
+    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint text-warning';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'fa-file-zipper text-warning';
+    if (['mp4', 'webm', 'mov'].includes(ext)) return 'fa-file-video text-primary';
+    if (['mp3', 'wav', 'ogg'].includes(ext)) return 'fa-file-audio text-primary';
+    if (['txt', 'log', 'md'].includes(ext)) return 'fa-file-lines text-primary';
+    if (['py', 'js', 'html', 'css', 'json', 'sql'].includes(ext)) return 'fa-file-code text-primary';
+    return 'fa-file-shield text-primary';
+}
+
+function renderPreviewLoading(filename) {
+    document.getElementById('preview-modal-title').textContent = filename || 'Loading File...';
+    document.getElementById('preview-modal-size').textContent = '--';
+    document.getElementById('preview-modal-type-badge').innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Decrypting...`;
+    document.getElementById('preview-modal-icon').className = `fa-solid ${getFileIconClass(filename)}`;
+    
+    const body = document.getElementById('preview-modal-body');
+    body.innerHTML = `
+        <div style="text-align: center; padding: 4rem 1rem;">
+            <i class="fa-solid fa-shield-halved fa-spin fa-3x text-primary" style="margin-bottom: 1rem;"></i>
+            <h4 style="color: var(--text-heading); margin-bottom: 0.5rem;">Decrypting File in Memory...</h4>
+            <p class="subtext" style="font-size: 0.85rem;">Processing AES-256 decrypted content for in-browser visual viewing.</p>
+        </div>
+    `;
+    
+    document.getElementById('preview-footer-info').innerHTML = `<i class="fa-solid fa-shield-halved text-primary"></i> Zero-Trust In-Memory Decryption`;
+    document.getElementById('preview-modal-download-btn').style.display = 'none';
+    document.getElementById('modal-file-preview').classList.add('active');
+}
+
+function renderPreviewModal(data, filename, downloadCallback) {
+    document.getElementById('preview-modal-title').textContent = data.filename || filename;
+    document.getElementById('preview-modal-size').textContent = formatBytes(data.size_bytes || 0);
+    document.getElementById('preview-modal-icon').className = `fa-solid ${getFileIconClass(data.filename || filename)}`;
+    
+    const typeBadge = document.getElementById('preview-modal-type-badge');
+    const body = document.getElementById('preview-modal-body');
+    const footerInfo = document.getElementById('preview-footer-info');
+    const dlBtn = document.getElementById('preview-modal-download-btn');
+
+    typeBadge.className = 'badge badge-success';
+    typeBadge.innerHTML = `<i class="fa-solid fa-eye"></i> Online Document View`;
+
+    if (data.preview_type === 'docx') {
+        typeBadge.innerHTML = `<i class="fa-solid fa-file-word"></i> Word Document View`;
+        body.innerHTML = `
+            <div class="docx-sheet-wrapper">
+                <div class="docx-document-sheet">
+                    ${data.html_content || '<p>No content in document.</p>'}
+                </div>
+            </div>
+        `;
+    } else if (data.preview_type === 'pdf') {
+        typeBadge.innerHTML = `<i class="fa-solid fa-file-pdf"></i> PDF Document View`;
+        body.innerHTML = `
+            <iframe src="${data.data_uri}" class="preview-pdf-frame" title="PDF Document Preview"></iframe>
+        `;
+    } else if (data.preview_type === 'image') {
+        typeBadge.innerHTML = `<i class="fa-solid fa-image"></i> Image Preview`;
+        body.innerHTML = `
+            <div class="preview-image-container">
+                <img src="${data.data_uri}" alt="${escapeHtml(data.filename)}">
+            </div>
+        `;
+    } else if (data.preview_type === 'text') {
+        typeBadge.innerHTML = `<i class="fa-solid fa-file-lines"></i> ${data.line_count || 1} Lines Text`;
+        body.innerHTML = `
+            <pre class="preview-code-wrapper"><code>${escapeHtml(data.text_content || '')}</code></pre>
+        `;
+    } else if (data.preview_type === 'media') {
+        if (data.media_kind === 'video') {
+            typeBadge.innerHTML = `<i class="fa-solid fa-video"></i> Video Player`;
+            body.innerHTML = `
+                <div class="preview-media-container">
+                    <video src="${data.data_uri}" controls autoplay muted style="max-height: 60vh;"></video>
+                </div>
+            `;
+        } else {
+            typeBadge.innerHTML = `<i class="fa-solid fa-headphones"></i> Audio Player`;
+            body.innerHTML = `
+                <div class="preview-media-container">
+                    <audio src="${data.data_uri}" controls autoplay></audio>
+                </div>
+            `;
+        }
+    } else {
+        typeBadge.className = 'badge badge-warning';
+        typeBadge.innerHTML = `<i class="fa-solid fa-file-shield"></i> Binary File`;
+        body.innerHTML = `
+            <div class="preview-unsupported-card">
+                <i class="fa-solid ${getFileIconClass(data.filename)} fa-3x text-primary" style="margin-bottom: 1rem;"></i>
+                <h4 style="margin-bottom: 0.5rem;">${escapeHtml(data.filename)}</h4>
+                <p class="subtext" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
+                    ${escapeHtml(data.message || 'This file format is encrypted and verified for secure download.')}
+                </p>
+            </div>
+        `;
+    }
+
+    if (data.can_download && downloadCallback) {
+        footerInfo.innerHTML = `<i class="fa-solid fa-circle-check text-success"></i> Decrypted in-memory. Click 'Download File' to save to your device.`;
+        dlBtn.style.display = 'inline-flex';
+        dlBtn.onclick = () => {
+            closeModal('modal-file-preview');
+            downloadCallback();
+        };
+    } else {
+        footerInfo.innerHTML = `<i class="fa-solid fa-lock text-warning"></i> View Only Access (Download Restricted)`;
+        dlBtn.style.display = 'none';
+    }
+
+    document.getElementById('modal-file-preview').classList.add('active');
+}
+
+async function openTokenShareFilePreview() {
+    const state = currentShareTokenState;
+    if (!state || !state.token) return;
+
+    const fname = state.shareData ? state.shareData.filename : 'Document';
+    renderPreviewLoading(fname);
+
+    const pwdParam = state.passwordInput ? `?password=${encodeURIComponent(state.passwordInput)}&otp_verified=true` : `?otp_verified=true`;
+
+    try {
+        const res = await fetch(`${API_BASE}/shares/token/${state.token}/preview${pwdParam}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || 'Failed to load online preview');
+        }
+
+        renderPreviewModal(data, fname, () => downloadTokenSharedFile());
+    } catch (err) {
+        showToast(err.message, 'error');
+        closeModal('modal-file-preview');
+    }
+}
+
+async function downloadTokenSharedFile() {
+    const state = currentShareTokenState;
+    if (!state || !state.token) return;
+
+    const fname = state.shareData ? state.shareData.filename : 'shared_file';
+    showToast(`Downloading and decrypting '${fname}'...`, 'info');
+
+    const pwdParam = state.passwordInput ? `?password=${encodeURIComponent(state.passwordInput)}&otp_verified=true` : `?otp_verified=true`;
+    const downloadUrl = `${API_BASE}/shares/token/${state.token}/download${pwdParam}`;
+
+    try {
+        const res = await fetch(downloadUrl);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Download failed');
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast(`'${fname}' downloaded successfully!`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function previewVaultFile(fileId, filename) {
+    renderPreviewLoading(filename);
+    try {
+        const res = await fetch(`${API_BASE}/files/${fileId}/preview`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to generate online preview');
+
+        renderPreviewModal(data, filename, () => downloadFile(fileId, filename));
+    } catch (err) {
+        showToast(err.message, 'error');
+        closeModal('modal-file-preview');
+    }
+}
+
