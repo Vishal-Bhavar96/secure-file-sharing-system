@@ -24,6 +24,7 @@ from app.services.share_service import (
     request_share_otp, verify_share_otp, verify_share_password_action
 )
 from app.services.file_service import download_and_decrypt_file
+from app.services.preview_service import generate_file_preview
 from app.services.audit_service import log_activity
 from app.routes.users import is_user_online, compute_last_seen_text
 
@@ -443,6 +444,43 @@ def view_by_token(
 
     headers = {"Content-Disposition": f'inline; filename="{filename}"'}
     return StreamingResponse(io.BytesIO(decrypted_bytes), media_type=mime_type, headers=headers)
+
+@router.get("/token/{share_token}/preview")
+def preview_by_token(
+    share_token: str,
+    request: Request,
+    password: Optional[str] = Query(None),
+    otp_verified: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    share = find_share_by_token_or_code(db, share_token)
+    if not share:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share token or code")
+
+    share, db_file = get_share_access_and_validate(
+        db, share_id=share.id, required_permission=SharePermission.VIEW,
+        password=password, otp_verified=otp_verified, ip_address=ip
+    )
+
+    decrypted_bytes, filename, mime_type = download_and_decrypt_file(
+        db, db_file=db_file, requesting_user=share.file.owner if share.file else None, ip_address=ip
+    )
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_VIEWED,
+        user_id=None,
+        user_email=share.recipient_email or "Recipient",
+        resource=f"Share:{share.id}:File:{db_file.id}",
+        details=f"Viewed shared file in online document previewer",
+        success=True,
+        ip_address=ip
+    )
+
+    preview_data = generate_file_preview(decrypted_bytes, filename, mime_type)
+    preview_data["can_download"] = (share.permission != SharePermission.VIEW and not share.is_expired)
+    return preview_data
 
 @router.get("/{share_id}", response_model=ShareOut)
 def get_share_details(

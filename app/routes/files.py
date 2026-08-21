@@ -103,6 +103,37 @@ def download_file(
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return StreamingResponse(io.BytesIO(decrypted_bytes), media_type=mime_type, headers=headers)
 
+@router.get("/{file_id}/view")
+def view_file_stream(
+    file_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    db_file = get_file_for_owner(db, file_id=file_id, user=current_user, ip_address=ip)
+    decrypted_bytes, filename, mime_type = download_and_decrypt_file(db, db_file=db_file, requesting_user=current_user, ip_address=ip)
+    
+    headers = {"Content-Disposition": f'inline; filename="{filename}"'}
+    return StreamingResponse(io.BytesIO(decrypted_bytes), media_type=mime_type, headers=headers)
+
+@router.get("/{file_id}/preview")
+def preview_file_route(
+    file_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.services.preview_service import generate_file_preview
+    ip = request.client.host if request.client else None
+    db_file = get_file_for_owner(db, file_id=file_id, user=current_user, ip_address=ip)
+    decrypted_bytes, filename, mime_type = download_and_decrypt_file(db, db_file=db_file, requesting_user=current_user, ip_address=ip)
+    
+    preview_data = generate_file_preview(decrypted_bytes, filename, mime_type)
+    preview_data["can_download"] = True
+    preview_data["file_id"] = db_file.id
+    return preview_data
+
 @router.put("/{file_id}/rename", response_model=FileOut)
 def rename(
     file_id: int,
