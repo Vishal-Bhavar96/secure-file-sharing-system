@@ -697,11 +697,15 @@ async function submitShareForm() {
         }
         if (!res.ok) throw new Error(data.detail || 'Share creation failed');
 
-        lastGeneratedShareUrl = data.share_url || `${window.location.origin}/#share/${data.share_token}`;
+        const shareToken = data.share_token || (data.share_code || '');
+        lastGeneratedShareUrl = `${window.location.origin}/#share/${shareToken}`;
         lastGeneratedShareCode = data.share_code || (data.share_token ? data.share_token.slice(0, 6).toUpperCase() : '');
 
         const urlInput = document.getElementById('share-generated-url');
         if (urlInput) urlInput.value = lastGeneratedShareUrl;
+
+        const openLinkBtn = document.getElementById('share-open-link-btn');
+        if (openLinkBtn) openLinkBtn.href = lastGeneratedShareUrl;
 
         const codeBadge = document.getElementById('share-generated-code');
         if (codeBadge) codeBadge.textContent = lastGeneratedShareCode || '------';
@@ -1107,8 +1111,15 @@ let currentShareTokenState = {
 
 function checkShareTokenHash() {
     const hash = window.location.hash;
-    if (hash && hash.startsWith('#share/')) {
-        const token = hash.replace('#share/', '').trim();
+    if (hash) {
+        let token = '';
+        if (hash.startsWith('#share/')) {
+            token = hash.replace('#share/', '').trim();
+        } else if (hash.startsWith('#/share/')) {
+            token = hash.replace('#/share/', '').trim();
+        } else if (hash.startsWith('#s/')) {
+            token = hash.replace('#s/', '').trim();
+        }
         if (token) {
             openTokenShareView(token);
         }
@@ -1127,6 +1138,24 @@ async function openTokenShareView(token) {
         const data = await res.json();
 
         if (!res.ok) {
+            if (res.status === 401) {
+                // Share requires a password!
+                currentShareTokenState = {
+                    token,
+                    shareData: {
+                        filename: 'Protected Shared File',
+                        shared_by_name: 'File Owner',
+                        permission: 'DOWNLOAD',
+                        requires_password: true,
+                        requires_otp: false
+                    },
+                    otpVerified: true,
+                    passwordVerified: false,
+                    passwordInput: null
+                };
+                renderRecipientVerificationStep();
+                return;
+            }
             renderAccessDeniedForToken(data.detail || 'Invalid or expired share link');
             return;
         }
@@ -1158,11 +1187,9 @@ function renderRecipientVerificationStep() {
     const expiryText = share.expiry_at ? new Date(share.expiry_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never';
 
     // Step calculations
-    const step1Done = true; // Email verification
+    const step1Done = true; // Email/Link verification
     const step2Done = !share.requires_otp || state.otpVerified;
     const step3Done = !share.requires_password || state.passwordVerified;
-
-    const allStepsCompleted = step1Done && step2Done && step3Done;
 
     // Header Card & Stepper
     let html = `
@@ -1234,9 +1261,9 @@ function renderRecipientVerificationStep() {
         // Step 3: Separate Share Password
         html += `
             <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color, #334155); border-radius: 10px; padding: 1.5rem; text-align: center; margin-top: 1rem;">
-                <h4 style="margin-bottom: 0.5rem; font-size: 1.05rem;"><i class="fa-solid fa-key text-primary"></i> Step 3: Enter Separate Share Password</h4>
+                <h4 style="margin-bottom: 0.5rem; font-size: 1.05rem;"><i class="fa-solid fa-key text-primary"></i> Enter Share Password</h4>
                 <p class="subtext" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
-                    Enter the separate share password provided out-of-band by the file owner.
+                    This file is password-protected. Enter the share password to unlock access.
                 </p>
 
                 <form onsubmit="handleRecipientPasswordVerify(event)">
@@ -1247,7 +1274,7 @@ function renderRecipientVerificationStep() {
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-lock-open"></i> Verify Password</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-pwd-verify"><i class="fa-solid fa-lock-open"></i> Unlock & Access File</button>
                 </form>
             </div>
         `;
@@ -1271,7 +1298,7 @@ function renderRecipientVerificationStep() {
                     <a href="${viewUrl}" target="_blank" class="btn btn-outline"><i class="fa-solid fa-eye"></i> View File</a>
                     ${canDownload ? 
                         `<a href="${downloadUrl}" class="btn btn-primary" download><i class="fa-solid fa-download"></i> Download File</a>` : 
-                        `<button class="btn btn-outline" disabled><i class="fa-solid fa-lock"></i> Download Restricted</button>`}
+                        `<button class="btn btn-outline" disabled><i class="fa-solid fa-lock"></i> Download Restricted (View Only)</button>`}
                 </div>
             </div>
         `;
@@ -1346,6 +1373,11 @@ async function handleRecipientPasswordVerify(e) {
     e.preventDefault();
     const state = currentShareTokenState;
     const pwdVal = document.getElementById('recipient-password-input').value;
+    const submitBtn = document.getElementById('btn-submit-pwd-verify');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verifying...`;
+    }
 
     try {
         const res = await fetch(`${API_BASE}/shares/token/${state.token}/verify-password`, {
@@ -1359,9 +1391,24 @@ async function handleRecipientPasswordVerify(e) {
         showToast('Share password verified!', 'success');
         state.passwordVerified = true;
         state.passwordInput = pwdVal;
+
+        // Fetch full share details with password now verified
+        try {
+            const metaRes = await fetch(`${API_BASE}/shares/token/${state.token}?password=${encodeURIComponent(pwdVal)}`);
+            if (metaRes.ok) {
+                state.shareData = await metaRes.json();
+                state.otpVerified = !state.shareData.requires_otp;
+            }
+        } catch (mErr) {}
+
         renderRecipientVerificationStep();
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        if (submitBtn && !state.passwordVerified) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="fa-solid fa-lock-open"></i> Unlock & Access File`;
+        }
     }
 }
 
