@@ -979,61 +979,89 @@ async function loadReceivedShares() {
         const shares = await res.json();
 
         if (!shares || shares.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">No files have been shared with you yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext" style="padding: 2.5rem; font-size: 0.95rem;">No files have been shared with you yet.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = shares.map(s => {
             const safeFilename = escapeHtml(s.filename || 'Shared File');
-            const safeSharedBy = escapeHtml(s.shared_by_email || 'Unknown');
+            const safeSharedBy = escapeHtml(s.shared_by_name ? `${s.shared_by_name} (${s.shared_by_email})` : (s.shared_by_email || 'Sender'));
             const jsEscapedFilename = (s.filename || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const jsEscapedSender = (s.shared_by_name || s.shared_by_email || 'Sender').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             const isOnline = s.shared_by_online;
             const statusText = s.shared_by_last_seen || (isOnline ? 'Active now' : 'Offline');
             const pillClass = isOnline ? 'online' : 'offline';
-            const userStatusBadge = `<span class="online-pill ${pillClass}" style="margin-left: 0.35rem; vertical-align: middle;"><span class="dot"></span> ${escapeHtml(statusText)}</span>`;
+            const userStatusBadge = `<span class="online-pill ${pillClass}" style="margin-left: 0.35rem; vertical-align: middle; font-size: 0.76rem; padding: 2px 7px;"><span class="dot"></span> ${escapeHtml(statusText)}</span>`;
 
             const isExpired = s.is_expired;
             const isLimitReached = s.max_downloads !== null && s.download_count >= s.max_downloads;
             const canDownload = !isExpired && !isLimitReached && s.permission !== 'VIEW';
+            const hasPassword = Boolean(s.has_password || s.requires_password);
 
-            let validityBadge = '<span class="badge badge-success"><i class="fa-solid fa-infinity"></i> Never Expires</span>';
+            let validityBadge = '<span class="badge badge-success" style="font-size: 0.8rem; padding: 3px 8px;"><i class="fa-solid fa-infinity"></i> Never Expires</span>';
             if (s.expiry_at) {
                 const expiryDate = new Date(s.expiry_at);
                 const now = new Date();
                 if (isExpired) {
-                    validityBadge = `<span class="badge badge-danger"><i class="fa-solid fa-clock"></i> Expired</span>`;
+                    validityBadge = `<span class="badge badge-danger" style="font-size: 0.8rem; padding: 3px 8px;"><i class="fa-solid fa-clock"></i> Expired</span>`;
                 } else {
                     const diffMs = expiryDate - now;
                     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                     const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
                     if (diffHours > 24) {
                         const days = Math.floor(diffHours / 24);
-                        validityBadge = `<span class="badge badge-success"><i class="fa-solid fa-clock"></i> Valid (${days}d left)</span>`;
+                        validityBadge = `<span class="badge badge-success" style="font-size: 0.8rem; padding: 3px 8px;"><i class="fa-solid fa-clock"></i> Valid (${days}d left)</span>`;
                     } else if (diffHours > 0) {
-                        validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Valid (${diffHours}h ${diffMins}m left)</span>`;
+                        validityBadge = `<span class="badge badge-warning" style="font-size: 0.8rem; padding: 3px 8px;"><i class="fa-solid fa-clock"></i> Valid (${diffHours}h ${diffMins}m left)</span>`;
                     } else {
-                        validityBadge = `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Expiring Soon (${diffMins}m left)</span>`;
+                        validityBadge = `<span class="badge badge-warning" style="font-size: 0.8rem; padding: 3px 8px;"><i class="fa-solid fa-clock"></i> Expiring Soon (${diffMins}m left)</span>`;
                     }
                 }
             }
 
-            let downloadStatus = `${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}`;
+            let downloadStatus = `<span style="font-weight: 600;">${s.download_count} / ${s.max_downloads !== null ? s.max_downloads : '∞'}</span>`;
             if (isLimitReached) {
-                downloadStatus += ` <span class="badge badge-danger">Limit Exceeded</span>`;
+                downloadStatus += ` <span class="badge badge-danger" style="font-size: 0.72rem;">Limit Exceeded</span>`;
             }
+
+            const securityBadge = hasPassword
+                ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.76rem; padding: 2px 7px; margin-top: 3px; display: inline-flex; align-items: center; gap: 0.3rem;"><i class="fa-solid fa-lock"></i> Protected</span>`
+                : `<span class="badge badge-success" style="font-size: 0.76rem; padding: 2px 7px; margin-top: 3px;"><i class="fa-solid fa-lock-open"></i> Direct</span>`;
 
             return `
                 <tr>
-                    <td><strong><i class="fa-solid fa-file-circle-check text-primary"></i> ${safeFilename}</strong></td>
-                    <td>${safeSharedBy} ${userStatusBadge}</td>
-                    <td><span class="badge">${escapeHtml(s.permission)}</span></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(37, 99, 235, 0.12); display: flex; align-items: center; justify-content: center; color: var(--action-primary); font-size: 1.15rem; flex-shrink: 0;">
+                                <i class="fa-solid fa-file-shield"></i>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-heading); font-size: 0.95rem; display: block;">${safeFilename}</strong>
+                                <div>${securityBadge}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.92rem; font-weight: 500;">${safeSharedBy}</div>
+                        <div>${userStatusBadge}</div>
+                    </td>
+                    <td><span class="badge ${s.permission === 'VIEW' ? 'badge-blue' : 'badge-success'}" style="font-size: 0.8rem; padding: 3px 8px;">${escapeHtml(s.permission)}</span></td>
                     <td>${validityBadge}</td>
                     <td>${downloadStatus}</td>
                     <td>
-                        ${canDownload ? 
-                            `<button class="btn btn-sm btn-primary" onclick="downloadSharedFile(${s.id}, '${jsEscapedFilename}')"><i class="fa-solid fa-download"></i> Download</button>` : 
-                            `<button class="btn btn-sm btn-outline" disabled><i class="fa-solid fa-lock"></i> Restricted</button>`}
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                            <button class="btn btn-sm btn-outline" onclick="requestSharedFileAccess(${s.id}, '${jsEscapedFilename}', '${jsEscapedSender}', ${hasPassword}, 'preview')" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
+                                <i class="fa-solid fa-eye text-primary"></i> View
+                            </button>
+                            ${canDownload ? 
+                                `<button class="btn btn-sm btn-primary" onclick="requestSharedFileAccess(${s.id}, '${jsEscapedFilename}', '${jsEscapedSender}', ${hasPassword}, 'download')" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
+                                    <i class="fa-solid fa-download"></i> Download
+                                </button>` : 
+                                `<button class="btn btn-sm btn-outline" disabled style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px; opacity: 0.6;">
+                                    <i class="fa-solid fa-lock"></i> ${s.permission === 'VIEW' ? 'View Only' : 'Restricted'}
+                                </button>`}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1231,30 +1259,142 @@ async function revokeShareAccess(shareId) {
     }
 }
 
-async function downloadSharedFile(shareId, filename) {
-    showToast(`Validating permissions & downloading '${filename}'...`, 'info');
-    try {
-        const res = await fetch(`${API_BASE}/shares/${shareId}/download`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
+function requestSharedFileAccess(shareId, filename, senderName, hasPassword, action) {
+    if (hasPassword) {
+        document.getElementById('shared-pwd-modal-share-id').value = shareId;
+        document.getElementById('shared-pwd-modal-filename-val').value = filename;
+        document.getElementById('shared-pwd-modal-filename').textContent = filename;
+        document.getElementById('shared-pwd-modal-sender').textContent = senderName;
+        document.getElementById('shared-pwd-modal-action').value = action || 'download';
+        
+        const pwdInput = document.getElementById('shared-file-access-password');
+        if (pwdInput) {
+            pwdInput.value = '';
+            pwdInput.type = 'password';
+        }
+        const eyeIcon = document.getElementById('shared-file-pwd-eye-icon');
+        if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
 
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Shared download failed');
+        const errMsg = document.getElementById('shared-pwd-error-msg');
+        if (errMsg) errMsg.style.display = 'none';
+
+        const submitBtn = document.getElementById('btn-submit-shared-password');
+        if (submitBtn) {
+            submitBtn.innerHTML = action === 'preview' ? '<i class="fa-solid fa-eye"></i> Unlock & View Online' : '<i class="fa-solid fa-download"></i> Unlock & Download';
         }
 
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showToast('Shared file downloaded and decrypted!', 'success');
-        loadSharedFiles();
+        document.getElementById('modal-shared-file-password').classList.add('active');
+        setTimeout(() => { if (pwdInput) pwdInput.focus(); }, 150);
+    } else {
+        if (action === 'preview') {
+            previewSharedFile(shareId, filename);
+        } else {
+            downloadSharedFile(shareId, filename);
+        }
+    }
+}
+
+function toggleSharedFilePasswordVisibility() {
+    const input = document.getElementById('shared-file-access-password');
+    const icon = document.getElementById('shared-file-pwd-eye-icon');
+    if (!input || !icon) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+    }
+}
+
+async function executeSharedFilePasswordAccess() {
+    const shareId = document.getElementById('shared-pwd-modal-share-id').value;
+    const filename = document.getElementById('shared-pwd-modal-filename-val').value;
+    const action = document.getElementById('shared-pwd-modal-action').value;
+    const password = document.getElementById('shared-file-access-password').value;
+    const errMsg = document.getElementById('shared-pwd-error-msg');
+
+    if (!password) {
+        if (errMsg) {
+            errMsg.textContent = 'Please enter the share password to continue.';
+            errMsg.style.display = 'block';
+        }
+        return;
+    }
+
+    const submitBtn = document.getElementById('btn-submit-shared-password');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+    }
+
+    try {
+        if (action === 'preview') {
+            await previewSharedFile(shareId, filename, password);
+            closeModal('modal-shared-file-password');
+        } else {
+            await downloadSharedFile(shareId, filename, password);
+            closeModal('modal-shared-file-password');
+        }
+    } catch (err) {
+        if (errMsg) {
+            errMsg.textContent = err.message || 'Incorrect password or access denied.';
+            errMsg.style.display = 'block';
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = action === 'preview' ? '<i class="fa-solid fa-eye"></i> Unlock & View Online' : '<i class="fa-solid fa-download"></i> Unlock & Download';
+        }
+    }
+}
+
+async function downloadSharedFile(shareId, filename, password = null) {
+    showToast(`Validating permissions & downloading '${filename}'...`, 'info');
+    let url = `${API_BASE}/shares/${shareId}/download`;
+    if (password) {
+        url += `?password=${encodeURIComponent(password)}`;
+    }
+    const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Download failed. Check share password.');
+    }
+
+    const blob = await res.blob();
+    const urlBlob = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = urlBlob;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(urlBlob);
+    showToast(`Shared file '${filename}' downloaded and decrypted!`, 'success');
+    loadSharedFiles();
+}
+
+async function previewSharedFile(shareId, filename, password = null) {
+    renderPreviewLoading(filename);
+    try {
+        let url = `${API_BASE}/shares/${shareId}/preview`;
+        if (password) {
+            url += `?password=${encodeURIComponent(password)}`;
+        }
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to generate online preview');
+
+        renderPreviewModal(data, filename, () => downloadSharedFile(shareId, filename, password));
     } catch (err) {
         showToast(err.message, 'error');
+        closeModal('modal-file-preview');
+        throw err;
     }
 }
 
@@ -1581,34 +1721,6 @@ function renderAccessDeniedForToken(reason) {
 window.addEventListener('hashchange', checkShareTokenHash);
 window.addEventListener('DOMContentLoaded', checkShareTokenHash);
 
-
-async function downloadSharedFile(shareId, filename) {
-    showToast(`Validating permissions & downloading '${filename}'...`, 'info');
-    try {
-        const res = await fetch(`${API_BASE}/shares/${shareId}/download`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Shared download failed');
-        }
-
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showToast('Shared file downloaded and decrypted!', 'success');
-        loadSharedFiles();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
-}
-
 // Audit Logs Tab
 async function loadAuditLogs() {
     const tbody = document.getElementById('logs-table-body');
@@ -1741,23 +1853,23 @@ function renderAdminUsersTable(users) {
     if (!tbody) return;
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 1.5rem;">No registered users found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 2rem; font-size: 0.95rem;">No registered users found.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = users.map(u => {
         const isOnline = u.is_online;
         const onlinePill = isOnline 
-            ? `<span class="online-pill online" style="font-size: 0.72rem; padding: 2px 7px;"><span class="dot"></span> Active now</span>`
-            : `<span class="online-pill offline" style="font-size: 0.72rem; padding: 2px 7px; opacity: 0.8;"><span class="dot"></span> ${escapeHtml(u.last_seen_text || 'Offline')}</span>`;
+            ? `<span class="online-pill online" style="font-size: 0.8rem; padding: 4px 10px;"><span class="dot"></span> Active now</span>`
+            : `<span class="online-pill offline" style="font-size: 0.8rem; padding: 4px 10px; opacity: 0.85;"><span class="dot"></span> ${escapeHtml(u.last_seen_text || 'Offline')}</span>`;
 
         const roleBadge = u.role === 'ADMIN'
-            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-crown"></i> Admin</span>`
-            : `<span class="badge" style="background: rgba(37, 99, 235, 0.15); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.3); font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-graduation-cap"></i> Student</span>`;
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.8rem; padding: 3px 9px; font-weight: 600;"><i class="fa-solid fa-crown"></i> Admin</span>`
+            : `<span class="badge" style="background: rgba(37, 99, 235, 0.15); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.3); font-size: 0.8rem; padding: 3px 9px; font-weight: 600;"><i class="fa-solid fa-graduation-cap"></i> Student</span>`;
 
         const statusBadge = u.is_active
-            ? `<span class="badge badge-success" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-circle-check"></i> Active</span>`
-            : `<span class="badge badge-danger" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-ban"></i> Suspended</span>`;
+            ? `<span class="badge badge-success" style="font-size: 0.8rem; padding: 3px 9px; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Active</span>`
+            : `<span class="badge badge-danger" style="font-size: 0.8rem; padding: 3px 9px; font-weight: 600;"><i class="fa-solid fa-ban"></i> Suspended</span>`;
 
         const isSelf = (currentUser && currentUser.id === u.id);
         const jsEscapedName = escapeHtml(u.name || '').replace(/'/g, "\\'");
@@ -1766,46 +1878,46 @@ function renderAdminUsersTable(users) {
         return `
             <tr>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.55rem;">
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.78rem; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);">
                             ${escapeHtml((u.name || 'U').charAt(0).toUpperCase())}
                         </div>
                         <div style="min-width: 0;">
-                            <strong style="color: var(--text-heading); font-size: 0.86rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.name)}</strong>
-                            <div class="subtext" style="font-size: 0.73rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.email)} <span style="opacity: 0.7;">• @${escapeHtml(u.username || 'user')}</span></div>
+                            <strong style="color: var(--text-heading); font-size: 0.95rem; display: block;">${escapeHtml(u.name)}</strong>
+                            <div class="subtext" style="font-size: 0.82rem; margin-top: 1px;">${escapeHtml(u.email)} <span style="opacity: 0.75;">• @${escapeHtml(u.username || 'user')}</span></div>
                         </div>
                     </div>
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
                         ${roleBadge}
                         ${statusBadge}
                     </div>
-                    <div class="subtext" style="font-size: 0.7rem; margin-top: 2px;">Joined ${new Date(u.created_at).toLocaleDateString()}</div>
+                    <div class="subtext" style="font-size: 0.78rem; margin-top: 4px;">Joined ${new Date(u.created_at).toLocaleDateString()}</div>
                 </td>
                 <td>
-                    <strong style="font-size: 0.84rem; color: var(--text-heading);">${u.files_count || 0} files</strong>
-                    <div class="subtext" style="font-size: 0.72rem;">${formatBytes(u.storage_used_bytes || 0)}</div>
+                    <strong style="font-size: 0.92rem; color: var(--text-heading);">${u.files_count || 0} files</strong>
+                    <div class="subtext" style="font-size: 0.8rem; margin-top: 2px;">${formatBytes(u.storage_used_bytes || 0)}</div>
                 </td>
                 <td>
                     ${onlinePill}
                 </td>
                 <td>
-                    <div class="demo-btn-group" style="gap: 0.3rem; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                        <button class="btn btn-sm btn-outline" onclick="openAdminEditUserModal(${u.id})" title="Edit Student Data & Password" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                    <div class="demo-btn-group" style="gap: 0.4rem; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                        <button class="btn btn-sm btn-outline" onclick="openAdminEditUserModal(${u.id})" title="Edit Student Data & Password" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                             <i class="fa-solid fa-pen text-primary"></i> Edit
                         </button>
                         ${!isSelf ? `
-                            <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                                 <i class="fa-solid ${u.is_active ? 'fa-ban text-danger' : 'fa-check text-success'}"></i> ${u.is_active ? 'Suspend' : 'Activate'}
                             </button>
-                            <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                                 <i class="fa-solid fa-arrows-rotate"></i> ${u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
                             </button>
-                            <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteUser(${u.id}, '${jsEscapedName}', '${jsEscapedEmail}')" title="Delete Student & Stored Data" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteUser(${u.id}, '${jsEscapedName}', '${jsEscapedEmail}')" title="Delete Student & Stored Data" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
-                        ` : `<span class="badge" style="font-size: 0.68rem; padding: 2px 6px;">Your Account</span>`}
+                        ` : `<span class="badge" style="font-size: 0.75rem; padding: 4px 8px;">Your Account</span>`}
                     </div>
                 </td>
             </tr>
@@ -2127,7 +2239,7 @@ function renderAdminFilesTable(files) {
     if (!tbody) return;
 
     if (!files || files.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext" style="padding: 1.5rem;">No stored files in platform vaults.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext" style="padding: 2rem; font-size: 0.95rem;">No stored files in platform vaults.</td></tr>`;
         return;
     }
 
@@ -2137,31 +2249,33 @@ function renderAdminFilesTable(files) {
         return `
             <tr>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-file-shield text-primary" style="font-size: 1.1rem; flex-shrink: 0;"></i>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(37, 99, 235, 0.12); display: flex; align-items: center; justify-content: center; color: var(--action-primary); font-size: 1.15rem; flex-shrink: 0;">
+                            <i class="fa-solid fa-file-shield"></i>
+                        </div>
                         <div style="min-width: 0;">
-                            <strong style="color: var(--text-heading); font-size: 0.86rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.filename)}</strong>
-                            <div class="subtext" style="font-size: 0.72rem;">📁 ${escapeHtml(f.folder || '/')}</div>
+                            <strong style="color: var(--text-heading); font-size: 0.95rem; display: block;">${escapeHtml(f.filename)}</strong>
+                            <div class="subtext" style="font-size: 0.8rem; margin-top: 2px;">📁 ${escapeHtml(f.folder || '/')}</div>
                         </div>
                     </div>
                 </td>
                 <td>
-                    <strong style="color: var(--text-heading); font-size: 0.84rem; display: block;">${escapeHtml(f.owner_name)}</strong>
-                    <div class="subtext" style="font-size: 0.72rem;">${escapeHtml(f.owner_email)}</div>
+                    <strong style="color: var(--text-heading); font-size: 0.92rem; display: block;">${escapeHtml(f.owner_name)}</strong>
+                    <div class="subtext" style="font-size: 0.8rem; margin-top: 1px;">${escapeHtml(f.owner_email)}</div>
                 </td>
                 <td>
-                    <strong style="font-size: 0.84rem; color: var(--text-heading);">${formatBytes(f.file_size)}</strong>
-                    <div class="subtext" style="font-size: 0.72rem;">${new Date(f.created_at).toLocaleDateString()}</div>
+                    <strong style="font-size: 0.92rem; color: var(--text-heading);">${formatBytes(f.file_size)}</strong>
+                    <div class="subtext" style="font-size: 0.8rem; margin-top: 2px;">${new Date(f.created_at).toLocaleDateString()}</div>
                 </td>
                 <td>
-                    <div class="demo-btn-group" style="gap: 0.3rem; display: flex; align-items: center; justify-content: flex-end;">
-                        <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                    <div class="demo-btn-group" style="gap: 0.4rem; display: flex; align-items: center; justify-content: flex-end;">
+                        <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                             <i class="fa-solid fa-eye text-primary"></i> View
                         </button>
-                        <button class="btn btn-sm btn-outline" onclick="downloadAdminSystemFile(${f.id}, '${jsEscapedName}')" title="Download Decrypted File" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
-                            <i class="fa-solid fa-download"></i>
+                        <button class="btn btn-sm btn-outline" onclick="downloadAdminSystemFile(${f.id}, '${jsEscapedName}')" title="Download Decrypted File" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
+                            <i class="fa-solid fa-download"></i> Download
                         </button>
-                        <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteFile(${f.id}, '${jsEscapedName}', '${jsEscapedOwner}')" title="Delete Stored File" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                        <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteFile(${f.id}, '${jsEscapedName}', '${jsEscapedOwner}')" title="Delete Stored File" style="padding: 0.35rem 0.65rem; font-size: 0.82rem; height: 34px;">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -2199,32 +2313,32 @@ async function loadAdminClientsTable() {
         const clients = await res.json();
 
         if (!clients || clients.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center subtext" style="padding: 1.5rem;">No active client sessions right now.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center subtext" style="padding: 2rem; font-size: 0.95rem;">No active client sessions right now.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = clients.map(c => `
             <tr>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.88rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);">
                             ${escapeHtml((c.name || 'U').charAt(0).toUpperCase())}
                         </div>
                         <div>
-                            <strong style="font-size: 0.86rem; color: var(--text-heading);">${escapeHtml(c.name)}</strong>
-                            <div class="subtext" style="font-size: 0.72rem;">${escapeHtml(c.email)}</div>
+                            <strong style="font-size: 0.95rem; color: var(--text-heading); display: block;">${escapeHtml(c.name)}</strong>
+                            <div class="subtext" style="font-size: 0.82rem; margin-top: 1px;">${escapeHtml(c.email)}</div>
                         </div>
                     </div>
                 </td>
                 <td>
-                    <span class="badge ${c.role === 'ADMIN' ? 'badge-warning' : 'badge-blue'}" style="font-size: 0.72rem; padding: 2px 7px;">
+                    <span class="badge ${c.role === 'ADMIN' ? 'badge-warning' : 'badge-blue'}" style="font-size: 0.8rem; padding: 4px 10px; font-weight: 600;">
                         ${escapeHtml(c.role)}
                     </span>
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="online-pill ${c.is_online ? 'online' : 'offline'}" style="font-size: 0.72rem; padding: 2px 7px;"><span class="dot"></span> ${escapeHtml(c.last_seen_text)}</span>
-                        <span class="subtext" style="font-size: 0.72rem;">(${c.last_seen_at ? new Date(c.last_seen_at).toLocaleTimeString() : 'N/A'})</span>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span class="online-pill ${c.is_online ? 'online' : 'offline'}" style="font-size: 0.8rem; padding: 4px 10px;"><span class="dot"></span> ${escapeHtml(c.last_seen_text)}</span>
+                        <span class="subtext" style="font-size: 0.8rem;">(${c.last_seen_at ? new Date(c.last_seen_at).toLocaleTimeString() : 'N/A'})</span>
                     </div>
                 </td>
             </tr>
@@ -2245,7 +2359,7 @@ async function loadAdminAllActivityLogs() {
     const tbody = document.getElementById('admin-activity-table');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding: 1.5rem;">Loading live system activity stream...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding: 2rem; font-size: 0.95rem;">Loading live system activity stream...</td></tr>`;
 
     try {
         const logsRes = await fetch(`${API_BASE}/audit/logs?limit=150`, {
@@ -2320,7 +2434,7 @@ function renderAdminActivityTable(logs) {
     if (!tbody) return;
 
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 1.5rem;">No activity records match the selected filter.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 2rem; font-size: 0.95rem;">No activity records match the selected filter.</td></tr>`;
         return;
     }
 
@@ -2351,24 +2465,24 @@ function renderAdminActivityTable(logs) {
         }
 
         const userDisplay = l.user_email 
-            ? `<strong style="color: var(--text-heading); font-size: 0.82rem;">${escapeHtml(l.user_email)}</strong>`
-            : `<span class="subtext" style="font-size: 0.78rem;">Anonymous / System</span>`;
+            ? `<strong style="color: var(--text-heading); font-size: 0.92rem;">${escapeHtml(l.user_email)}</strong>`
+            : `<span class="subtext" style="font-size: 0.85rem;">Anonymous / System</span>`;
 
         const resultBadge = l.success 
-            ? `<span style="color: var(--accent-success); font-weight: 600; font-size: 0.78rem;"><i class="fa-solid fa-circle-check"></i> Success</span>`
-            : `<span style="color: var(--accent-error); font-weight: 600; font-size: 0.78rem;"><i class="fa-solid fa-circle-xmark"></i> Denied</span>`;
+            ? `<span style="color: var(--accent-success); font-weight: 600; font-size: 0.85rem;"><i class="fa-solid fa-circle-check"></i> Success</span>`
+            : `<span style="color: var(--accent-error); font-weight: 600; font-size: 0.85rem;"><i class="fa-solid fa-circle-xmark"></i> Denied</span>`;
 
         return `
             <tr>
-                <td style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+                <td style="font-size: 0.88rem; color: var(--text-muted); white-space: nowrap;">
                     ${timeStr}
-                    <div class="subtext" style="font-family: monospace; font-size: 0.7rem;">${escapeHtml(l.ip_address || '127.0.0.1')}</div>
+                    <div class="subtext" style="font-family: monospace; font-size: 0.78rem; margin-top: 2px;">${escapeHtml(l.ip_address || '127.0.0.1')}</div>
                 </td>
                 <td>${userDisplay}</td>
-                <td><span class="badge ${actionBadgeClass}" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid ${actionIcon}"></i> ${escapeHtml(l.action)}</span></td>
+                <td><span class="badge ${actionBadgeClass}" style="font-size: 0.8rem; padding: 4px 9px; font-weight: 600;"><i class="fa-solid ${actionIcon}"></i> ${escapeHtml(l.action)}</span></td>
                 <td>
-                    <div style="font-size: 0.82rem; max-width: 320px; word-break: break-word; color: var(--text-heading);">${escapeHtml(l.details || '-')}</div>
-                    ${l.resource ? `<div class="subtext" style="font-family: monospace; font-size: 0.7rem;">${escapeHtml(l.resource)}</div>` : ''}
+                    <div style="font-size: 0.92rem; max-width: 360px; word-break: break-word; color: var(--text-heading); font-weight: 500;">${escapeHtml(l.details || '-')}</div>
+                    ${l.resource ? `<div class="subtext" style="font-family: monospace; font-size: 0.78rem; margin-top: 2px;">${escapeHtml(l.resource)}</div>` : ''}
                 </td>
                 <td style="text-align: right;">${resultBadge}</td>
             </tr>

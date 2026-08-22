@@ -299,8 +299,13 @@ def get_shares_received_by_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from sqlalchemy import or_
     shares = db.query(FileShare).filter(
-        FileShare.shared_with_id == current_user.id,
+        or_(
+            FileShare.shared_with_id == current_user.id,
+            FileShare.recipient_email.ilike(current_user.email),
+            FileShare.recipient_email.ilike(current_user.username)
+        ),
         FileShare.is_revoked == False,
         FileShare.is_active == True
     ).order_by(FileShare.created_at.desc()).all()
@@ -543,6 +548,75 @@ def download_shared_file(
 
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return StreamingResponse(io.BytesIO(decrypted_bytes), media_type=mime_type, headers=headers)
+
+@router.get("/{share_id}/view")
+def view_shared_file(
+    share_id: int,
+    request: Request,
+    password: Optional[str] = Query(None),
+    otp_verified: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    share, db_file = get_share_access_and_validate(
+        db, share_id=share_id, requesting_user=current_user,
+        required_permission=SharePermission.VIEW, password=password,
+        otp_verified=otp_verified, ip_address=ip
+    )
+
+    decrypted_bytes, filename, mime_type = download_and_decrypt_file(
+        db, db_file=db_file, requesting_user=current_user, ip_address=ip
+    )
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_VIEWED,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        resource=f"Share:{share.id}:File:{db_file.id}",
+        details=f"Viewed shared file content online",
+        success=True,
+        ip_address=ip
+    )
+
+    headers = {"Content-Disposition": f'inline; filename="{filename}"'}
+    return StreamingResponse(io.BytesIO(decrypted_bytes), media_type=mime_type, headers=headers)
+
+@router.get("/{share_id}/preview")
+def preview_shared_file(
+    share_id: int,
+    request: Request,
+    password: Optional[str] = Query(None),
+    otp_verified: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ip = request.client.host if request.client else None
+    share, db_file = get_share_access_and_validate(
+        db, share_id=share_id, requesting_user=current_user,
+        required_permission=SharePermission.VIEW, password=password,
+        otp_verified=otp_verified, ip_address=ip
+    )
+
+    decrypted_bytes, filename, mime_type = download_and_decrypt_file(
+        db, db_file=db_file, requesting_user=current_user, ip_address=ip
+    )
+
+    log_activity(
+        db,
+        action=AuditAction.FILE_VIEWED,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        resource=f"Share:{share.id}:File:{db_file.id}",
+        details=f"Viewed shared file in online document previewer",
+        success=True,
+        ip_address=ip
+    )
+
+    preview_data = generate_file_preview(decrypted_bytes, filename, mime_type)
+    preview_data["can_download"] = (share.permission != SharePermission.VIEW and not share.is_expired)
+    return preview_data
 
 @router.get("/{share_id}/qr")
 def generate_share_qr_code(

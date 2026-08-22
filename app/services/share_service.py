@@ -407,9 +407,12 @@ def get_share_access_and_validate(
 
     # 3. Check recipient identity if recipient is specifically assigned
     is_owner = requesting_user and requesting_user.id == share.shared_by_id
-    is_recipient = requesting_user and requesting_user.id == share.shared_with_id
+    is_recipient = requesting_user and (
+        requesting_user.id == share.shared_with_id or 
+        (share.recipient_email and requesting_user.email and share.recipient_email.lower() == requesting_user.email.lower())
+    )
 
-    if share.shared_with_id is not None:
+    if share.shared_with_id is not None or share.recipient_email is not None:
         if requesting_user and not is_recipient and not is_owner:
             log_activity(
                 db,
