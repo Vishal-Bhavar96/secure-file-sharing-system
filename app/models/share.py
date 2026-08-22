@@ -98,6 +98,12 @@ class FileShare(Base):
     def downloads_used(self, value):
         self.download_count = value
 
+    @property
+    def is_expired(self) -> bool:
+        if not self.expiry_at:
+            return False
+        return datetime.utcnow() > self.expiry_at
+
 # Class alias for Table/Model specification
 SharedFiles = FileShare
 
