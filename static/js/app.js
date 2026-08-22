@@ -63,6 +63,9 @@ function showAuthView() {
     stopHeartbeat();
     document.getElementById('view-auth').classList.add('active');
     document.getElementById('view-dashboard').classList.remove('active');
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'inline-flex');
+    document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'none');
     updateNavActions();
 }
 
@@ -70,10 +73,14 @@ function showDashboardView() {
     document.getElementById('view-auth').classList.remove('active');
     document.getElementById('view-dashboard').classList.add('active');
     
-    if (currentUser.role === 'ADMIN') {
+    if (currentUser && currentUser.role === 'ADMIN') {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'flex');
     } else {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'inline-flex');
+        document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'none');
     }
 
     updateUserHeaderUI();
@@ -1706,7 +1713,7 @@ async function loadAdminStats() {
         loadAdminUsersTable();
         loadAdminFilesTable();
         loadAdminClientsTable();
-        loadAdminSecurityLogs();
+        loadAdminAllActivityLogs();
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -1942,34 +1949,251 @@ async function loadAdminClientsTable() {
     }
 }
 
-async function loadAdminSecurityLogs() {
-    const tbody = document.getElementById('admin-security-table');
+// ==========================================
+// Admin Activity Stream & Audit Operations
+// ==========================================
+let adminCachedLogs = [];
+let adminCurrentActivityCategory = 'all';
+let adminCurrentActivitySearch = '';
+
+async function loadAdminAllActivityLogs() {
+    const tbody = document.getElementById('admin-activity-table');
     if (!tbody) return;
 
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center">Loading live system activity stream...</td></tr>`;
+
     try {
-        const logsRes = await fetch(`${API_BASE}/audit/logs?limit=40`, {
+        const logsRes = await fetch(`${API_BASE}/audit/logs?limit=150`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        if (!logsRes.ok) return;
+        if (!logsRes.ok) throw new Error('Failed to fetch activity logs');
         const logs = await logsRes.json();
-        const securityLogs = logs.filter(l => !l.success || l.action.includes('UNAUTHORIZED') || l.action.includes('FAILED') || l.action.includes('DENIED'));
+        adminCachedLogs = logs;
 
-        if (securityLogs.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext">No security violations or failed events detected. Zero-trust security active.</td></tr>`;
-        } else {
-            tbody.innerHTML = securityLogs.map(l => `
-                <tr>
-                    <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(l.created_at).toLocaleString()}</td>
-                    <td><strong style="color: var(--text-heading);">${escapeHtml(l.user_email || l.ip_address || 'Unknown Client')}</strong></td>
-                    <td><span class="badge badge-danger">${escapeHtml(l.action)}</span></td>
-                    <td>${escapeHtml(l.details || '-')}</td>
-                </tr>
-            `).join('');
-        }
+        const countBadge = document.getElementById('admin-subtab-activity-count');
+        if (countBadge) countBadge.textContent = logs.length;
+
+        applyAdminActivityFilters();
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
     }
 }
+
+// Backward compatibility alias
+async function loadAdminSecurityLogs() {
+    return loadAdminAllActivityLogs();
+}
+
+function filterAdminActivityCategory(category, btn) {
+    adminCurrentActivityCategory = category;
+    document.querySelectorAll('#admin-activity-filter-pills .activity-filter-btn').forEach(b => {
+        b.classList.remove('active', 'btn-primary');
+        b.classList.add('btn-outline');
+    });
+    if (btn) {
+        btn.classList.remove('btn-outline');
+        btn.classList.add('active', 'btn-primary');
+    }
+    applyAdminActivityFilters();
+}
+
+function filterAdminActivitySearch(query) {
+    adminCurrentActivitySearch = (query || '').toLowerCase().trim();
+    applyAdminActivityFilters();
+}
+
+function applyAdminActivityFilters() {
+    let filtered = [...adminCachedLogs];
+
+    // Category filter
+    if (adminCurrentActivityCategory === 'logins') {
+        filtered = filtered.filter(l => l.action && l.action.toLowerCase().includes('login'));
+    } else if (adminCurrentActivityCategory === 'files') {
+        filtered = filtered.filter(l => l.action && (l.action.includes('FILE_UPLOAD') || l.action.includes('FILE_DELETE') || l.action.includes('FOLDER') || l.action.includes('RENAME') || l.action.includes('MOVE')));
+    } else if (adminCurrentActivityCategory === 'shares') {
+        filtered = filtered.filter(l => l.action && (l.action.includes('SHARE') || l.action.includes('DOWNLOAD') || l.action.includes('VIEW')));
+    } else if (adminCurrentActivityCategory === 'alerts') {
+        filtered = filtered.filter(l => !l.success || l.action.includes('UNAUTHORIZED') || l.action.includes('FAILED') || l.action.includes('DENIED') || l.action.includes('OTP_FAILED'));
+    }
+
+    // Text search filter
+    if (adminCurrentActivitySearch) {
+        filtered = filtered.filter(l => 
+            (l.user_email && l.user_email.toLowerCase().includes(adminCurrentActivitySearch)) ||
+            (l.action && l.action.toLowerCase().includes(adminCurrentActivitySearch)) ||
+            (l.resource && l.resource.toLowerCase().includes(adminCurrentActivitySearch)) ||
+            (l.details && l.details.toLowerCase().includes(adminCurrentActivitySearch)) ||
+            (l.ip_address && l.ip_address.toLowerCase().includes(adminCurrentActivitySearch))
+        );
+    }
+
+    renderAdminActivityTable(filtered);
+}
+
+function renderAdminActivityTable(logs) {
+    const tbody = document.getElementById('admin-activity-table');
+    if (!tbody) return;
+
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center subtext" style="padding: 1.5rem;">No activity records match the selected filter.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = logs.map(l => {
+        const timeStr = new Date(l.created_at).toLocaleString();
+        
+        let actionBadgeClass = 'badge-blue';
+        let actionIcon = 'fa-circle-info';
+
+        if (l.action.includes('LOGIN_SUCCESS')) {
+            actionBadgeClass = 'badge-success';
+            actionIcon = 'fa-right-to-bracket';
+        } else if (l.action.includes('LOGIN_FAILED') || l.action.includes('UNAUTHORIZED') || l.action.includes('DENIED') || !l.success) {
+            actionBadgeClass = 'badge-danger';
+            actionIcon = 'fa-triangle-exclamation';
+        } else if (l.action.includes('UPLOAD')) {
+            actionBadgeClass = 'badge-teal';
+            actionIcon = 'fa-cloud-arrow-up';
+        } else if (l.action.includes('DOWNLOAD') || l.action.includes('VIEW')) {
+            actionBadgeClass = 'badge-blue';
+            actionIcon = 'fa-download';
+        } else if (l.action.includes('SHARE')) {
+            actionBadgeClass = 'badge-purple';
+            actionIcon = 'fa-share-nodes';
+        } else if (l.action.includes('DELETE')) {
+            actionBadgeClass = 'badge-gold';
+            actionIcon = 'fa-trash';
+        }
+
+        const userDisplay = l.user_email 
+            ? `<strong style="color: var(--text-heading); font-size: 0.84rem;">${escapeHtml(l.user_email)}</strong>`
+            : `<span class="subtext" style="font-size: 0.8rem;">Anonymous / System</span>`;
+
+        const resultBadge = l.success 
+            ? `<span style="color: var(--accent-success); font-weight: 600; font-size: 0.82rem;"><i class="fa-solid fa-circle-check"></i> Success</span>`
+            : `<span style="color: var(--accent-error); font-weight: 600; font-size: 0.82rem;"><i class="fa-solid fa-circle-xmark"></i> Denied / Fail</span>`;
+
+        return `
+            <tr>
+                <td style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">${timeStr}</td>
+                <td>${userDisplay}</td>
+                <td><span class="badge ${actionBadgeClass}" style="font-size: 0.75rem;"><i class="fa-solid ${actionIcon}"></i> ${escapeHtml(l.action)}</span></td>
+                <td style="font-size: 0.82rem; font-family: monospace; color: var(--text-body);">${escapeHtml(l.resource || '-')}</td>
+                <td style="font-size: 0.82rem; max-width: 260px; word-break: break-word;">${escapeHtml(l.details || '-')}</td>
+                <td style="font-size: 0.78rem; font-family: monospace; color: var(--text-muted);">${escapeHtml(l.ip_address || '127.0.0.1')}</td>
+                <td>${resultBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ==========================================
+// Special Administrator Elevation & Switcher
+// ==========================================
+function openSpecialAdminModal() {
+    const emailInput = document.getElementById('special-admin-email');
+    const pwdInput = document.getElementById('special-admin-password');
+    const errMsg = document.getElementById('special-admin-error-msg');
+    if (emailInput && !emailInput.value) emailInput.value = 'admin@secure.local';
+    if (pwdInput && !pwdInput.value) pwdInput.value = 'AdminSecret123!';
+    if (errMsg) errMsg.style.display = 'none';
+    openModal('modal-special-admin');
+}
+
+function fillSpecialAdminDemo() {
+    const emailInput = document.getElementById('special-admin-email');
+    const pwdInput = document.getElementById('special-admin-password');
+    if (emailInput) emailInput.value = 'admin@secure.local';
+    if (pwdInput) pwdInput.value = 'AdminSecret123!';
+    showToast('Admin demo credentials populated', 'info');
+}
+
+async function submitSpecialAdminLogin(e) {
+    if (e) e.preventDefault();
+    const email = document.getElementById('special-admin-email').value.trim();
+    const password = document.getElementById('special-admin-password').value;
+    const errMsg = document.getElementById('special-admin-error-msg');
+    const submitBtn = document.getElementById('btn-submit-special-admin');
+
+    if (!email || !password) {
+        if (errMsg) {
+            errMsg.textContent = 'Please enter admin email/username and password.';
+            errMsg.style.display = 'block';
+        }
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.detail || 'Authentication failed');
+        }
+
+        if (data.user.role !== 'ADMIN') {
+            throw new Error(`Account '${data.user.email}' does not have Administrator privileges. Please use an Admin account.`);
+        }
+
+        // Save session tokens and update current state
+        authToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem('access_token', authToken);
+        localStorage.setItem('user_data', JSON.stringify(currentUser));
+
+        closeModal('modal-special-admin');
+        showToast('🎉 Admin Elevation Successful! Admin Security Center & All Activity Unlocked.', 'success');
+
+        showDashboardView();
+        switchDashboardTab('admin');
+        loadAdminStats();
+    } catch (err) {
+        if (errMsg) {
+            errMsg.textContent = err.message;
+            errMsg.style.display = 'block';
+        }
+        showToast(err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-unlock-keyhole"></i> Elevate & Show All Activity';
+        }
+    }
+}
+
+async function switchToStudentProfile() {
+    try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'usera@secure.local', password: 'UserSecret123!' })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to switch to student account');
+
+        authToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem('access_token', authToken);
+        localStorage.setItem('user_data', JSON.stringify(currentUser));
+
+        showToast('Switched to Demo Student (Alice Johnson)', 'info');
+        showDashboardView();
+        switchDashboardTab('files');
+    } catch (err) {
+        showToast('Could not switch to student account: ' + err.message, 'error');
+    }
+}
+
 
 // Recycle Bin Operations
 async function loadTrashFiles() {

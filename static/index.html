@@ -27,6 +27,9 @@
                 <button type="button" class="btn btn-sm btn-outline" onclick="openEnterCodeModal()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); font-weight: 600;">
                     <i class="fa-solid fa-key text-primary"></i> <span>Enter Code</span>
                 </button>
+                <button type="button" class="btn btn-sm btn-outline student-only-btn" id="nav-special-admin-btn" onclick="openSpecialAdminModal()" style="display: none; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); font-weight: 600; color: #b45309; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08);" title="Special Administrator Elevation & Activity">
+                    <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i> <span>Special Admin Login</span>
+                </button>
                 <div class="account-control-container" id="account-control-container" style="display:none; position: relative;">
                     <div class="account-dropdown-trigger" id="account-dropdown-trigger" onclick="toggleAccountDropdown(event)">
                         <div class="avatar-wrapper">
@@ -74,6 +77,12 @@
                         <button type="button" class="dropdown-item" onclick="openAccountModal('security')">
                             <i class="fa-solid fa-shield-halved"></i> <span>Security & Sessions</span>
                         </button>
+                        <button type="button" class="dropdown-item student-only-btn" id="dropdown-special-admin-btn" onclick="openSpecialAdminModal()" style="color: #b45309; font-weight: 600; display: none;">
+                            <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i> <span>Special Admin Login</span>
+                        </button>
+                        <button type="button" class="dropdown-item admin-only-btn" id="dropdown-switch-student-btn" onclick="switchToStudentProfile()" style="color: #2563eb; font-weight: 600; display: none;">
+                            <i class="fa-solid fa-graduation-cap" style="color: #2563eb;"></i> <span>Switch to Student View</span>
+                        </button>
                         <div class="dropdown-divider"></div>
                         <button type="button" class="dropdown-item text-danger" onclick="handleLogout()">
                             <i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span>
@@ -120,6 +129,12 @@
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fa-solid fa-key"></i> Authenticate & Enter
                         </button>
+
+                        <div style="margin-top: 0.85rem; text-align: center;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="openSpecialAdminModal()" style="width: 100%; border-color: rgba(245, 158, 11, 0.4); color: #b45309; background: rgba(245, 158, 11, 0.06); font-weight: 600; padding: 0.45rem 0.75rem; border-radius: var(--radius-md);" title="Special Administrator Elevation & Activity">
+                                <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i> Special Admin Portal Login
+                            </button>
+                        </div>
 
                         <!-- Security Trust Indicator -->
                         <div class="security-trust-indicator">
@@ -388,14 +403,17 @@
                     <div class="glass-panel" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
                         <div>
                             <h2 style="font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text-heading);">
-                                <i class="fa-solid fa-user-shield text-primary"></i> Admin Master Dashboard
+                                <i class="fa-solid fa-user-shield text-primary"></i> Admin Master Dashboard & Security Center
                             </h2>
                             <p style="color: var(--text-muted, #94a3b8); font-size: 0.88rem; margin-top: 0.25rem;">
-                                Complete system overview: Registered students, encrypted files, real-time client logins, and zero-trust security audits.
+                                Complete system overview: Registered students, encrypted files, real-time client logins, and zero-trust activity stream.
                             </p>
                         </div>
-                        <div style="display: flex; gap: 0.6rem;">
-                            <button class="btn btn-outline btn-sm" onclick="loadAdminStats()" title="Refresh Dashboard">
+                        <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="switchToStudentProfile()" title="Switch to Student Account (User A)" style="border-color: rgba(37, 99, 235, 0.4); color: var(--action-primary); font-weight: 600;">
+                                <i class="fa-solid fa-graduation-cap"></i> Student View
+                            </button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="loadAdminStats()" title="Refresh Dashboard">
                                 <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
                             </button>
                         </div>
@@ -460,8 +478,8 @@
                         <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-clients" onclick="switchAdminSubTab('clients')">
                             <i class="fa-solid fa-circle-dot text-success"></i> Logged-In Clients (<span id="admin-subtab-clients-count">0</span>)
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-security" onclick="switchAdminSubTab('security')">
-                            <i class="fa-solid fa-shield-virus text-danger"></i> Security Alerts (<span id="stat-security-events">0</span>)
+                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-activity" onclick="switchAdminSubTab('activity')">
+                            <i class="fa-solid fa-list-check text-primary"></i> All System Activity & Audits (<span id="admin-subtab-activity-count">0</span>)
                         </button>
                     </div>
 
@@ -538,21 +556,48 @@
                         </div>
                     </div>
 
-                    <!-- Panel 4: Security Events -->
-                    <div id="admin-panel-security" class="admin-panel" style="display: none;">
+                    <!-- Panel 4: All System Activity & Security Logs -->
+                    <div id="admin-panel-activity" class="admin-panel" style="display: none;">
                         <div class="table-container glass-panel">
-                            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;"><i class="fa-solid fa-shield-virus text-danger"></i> Security Violations, Failed Attempts & Audits</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fa-solid fa-shield-halved text-primary"></i> Live Activity & Security Audit Stream
+                                    </h3>
+                                    <p class="subtext" style="font-size: 0.78rem; margin: 0.2rem 0 0 0;">Monitoring zero-trust events, logins, file operations, and security alerts across all users.</p>
+                                </div>
+                                
+                                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                    <input type="text" id="admin-activity-search" placeholder="Search activity, user, or IP..." oninput="filterAdminActivitySearch(this.value)" style="max-width: 240px; padding: 0.35rem 0.75rem; font-size: 0.82rem; border-radius: var(--radius-md);">
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="loadAdminAllActivityLogs()" title="Refresh Activity Stream">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Category Filter Pills -->
+                            <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;" id="admin-activity-filter-pills">
+                                <button type="button" class="btn btn-sm btn-primary activity-filter-btn active" onclick="filterAdminActivityCategory('all', this)">All Activity</button>
+                                <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('logins', this)"><i class="fa-solid fa-key"></i> Logins</button>
+                                <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('files', this)"><i class="fa-solid fa-file"></i> File Actions</button>
+                                <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('shares', this)"><i class="fa-solid fa-share-nodes"></i> Sharing & Links</button>
+                                <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('alerts', this)"><i class="fa-solid fa-triangle-exclamation text-danger"></i> Security Alerts & Denials</button>
+                            </div>
+
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Time</th>
-                                        <th>User / IP</th>
-                                        <th>Security Event</th>
+                                        <th>Timestamp</th>
+                                        <th>User / Student</th>
+                                        <th>Action / Event</th>
+                                        <th>Resource</th>
                                         <th>Details</th>
+                                        <th>IP Address</th>
+                                        <th>Result</th>
                                     </tr>
                                 </thead>
-                                <tbody id="admin-security-table">
-                                    <tr><td colspan="4" class="text-center">Loading security log feed...</td></tr>
+                                <tbody id="admin-activity-table">
+                                    <tr><td colspan="7" class="text-center">Loading live system activity stream...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1212,6 +1257,64 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Special Administrator Login & Elevation -->
+    <div id="modal-special-admin" class="modal">
+        <div class="modal-content glass-panel" style="max-width: 440px; width: 92%; padding: 1.5rem;">
+            <div class="modal-header" style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: #f59e0b; font-size: 1.15rem; border: 1px solid rgba(245, 158, 11, 0.3);">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text-heading);">Special Admin Login</h3>
+                        <span style="font-size: 0.75rem; color: #b45309; font-weight: 600;">Elevated Access & All System Activity</span>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeModal('modal-special-admin')">&times;</button>
+            </div>
+
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
+                <p class="subtext" style="font-size: 0.83rem; line-height: 1.45; margin: 0;">
+                    Authenticate with Administrator credentials to unlock the <strong>Admin Security Center</strong> and monitor <strong>All System Activity</strong>, user management, and security audits.
+                </p>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 0.55rem 0.75rem;">
+                    <div style="font-size: 0.78rem; color: var(--text-heading);">
+                        <strong style="color: #b45309;"><i class="fa-solid fa-bolt"></i> Default System Admin:</strong>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">admin@secure.local</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="fillSpecialAdminDemo()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; border-color: rgba(245, 158, 11, 0.4); color: #b45309; font-weight: 600;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto Fill
+                    </button>
+                </div>
+
+                <form onsubmit="submitSpecialAdminLogin(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="special-admin-email" style="font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-envelope"></i> Admin Email or Username</label>
+                        <input type="text" id="special-admin-email" placeholder="admin@secure.local or username" required style="font-size: 0.88rem; padding: 0.5rem 0.75rem;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="special-admin-password" style="font-size: 0.82rem; font-weight: 600;"><i class="fa-solid fa-lock"></i> Admin Password</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="special-admin-password" placeholder="••••••••" required style="font-size: 0.88rem; padding: 0.5rem 0.75rem;">
+                            <i class="fa-solid fa-eye toggle-pwd-icon" onclick="togglePasswordVisibility('special-admin-password', this)" title="Toggle password visibility"></i>
+                        </div>
+                    </div>
+
+                    <div id="special-admin-error-msg" style="display: none; font-size: 0.8rem; color: var(--accent-error); padding: 0.45rem 0.65rem; background: var(--bg-error); border: 1px solid var(--border-error); border-radius: 6px;"></div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.5rem;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-special-admin')">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-special-admin" style="background: linear-gradient(135deg, #f59e0b, #d97706); border-color: #d97706; color: #fff; font-weight: 600; padding: 0.45rem 0.9rem;">
+                            <i class="fa-solid fa-unlock-keyhole"></i> Elevate & Show All Activity
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
