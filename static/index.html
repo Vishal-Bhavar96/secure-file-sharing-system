@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css?v=2.0">
+    <link rel="stylesheet" href="/css/style.css?v=2.1">
 </head>
 <body class="clean-theme">
     <div id="app" class="app-container">
@@ -400,16 +400,16 @@
 
                 <!-- Tab Content: Admin Portal -->
                 <div id="content-admin" class="dash-tab-content">
-                    <div class="glass-panel" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <div class="glass-panel" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; padding: 1.15rem 1.35rem; flex-wrap: wrap; gap: 0.85rem; border-left: 4px solid var(--action-primary);">
                         <div>
-                            <h2 style="font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text-heading);">
-                                <i class="fa-solid fa-user-shield text-primary"></i> Admin Master Dashboard & Security Center
+                            <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text-heading); margin: 0;">
+                                <i class="fa-solid fa-shield-halved text-primary"></i> Admin Master Dashboard & Security Center
                             </h2>
-                            <p style="color: var(--text-muted, #94a3b8); font-size: 0.88rem; margin-top: 0.25rem;">
+                            <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; margin-bottom: 0;">
                                 Complete system overview: Registered students, encrypted files, real-time client logins, and zero-trust activity stream.
                             </p>
                         </div>
-                        <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                             <button type="button" class="btn btn-outline btn-sm" onclick="switchToStudentProfile()" title="Switch to Student Account (User A)" style="border-color: rgba(37, 99, 235, 0.4); color: var(--action-primary); font-weight: 600;">
                                 <i class="fa-solid fa-graduation-cap"></i> Student View
                             </button>
@@ -420,87 +420,92 @@
                     </div>
 
                     <!-- Metrics Cards Grid -->
-                    <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div class="metric-card glass-panel">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
                             <div class="icon-box blue"><i class="fa-solid fa-users"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Total Registered Users</span>
+                                <span class="metric-label">Total Users</span>
                                 <h3 id="stat-total-users">0</h3>
-                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;" id="stat-user-breakdown">0 Students • 0 Admins</p>
+                                <p class="metric-subtext" id="stat-user-breakdown">0 Students • 0 Admins</p>
                             </div>
                         </div>
 
-                        <div class="metric-card glass-panel">
-                            <div class="icon-box green" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;"><i class="fa-solid fa-satellite-dish"></i></div>
+                        <div class="metric-card">
+                            <div class="icon-box green"><i class="fa-solid fa-satellite-dish"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Logged-In Clients</span>
-                                <h3 id="stat-online-users" style="color: #22c55e;">0</h3>
-                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;"><span class="online-pill online" style="padding: 1px 6px; font-size: 0.7rem;"><span class="dot"></span> Online Now</span></p>
+                                <span class="metric-label">Online Clients</span>
+                                <h3 id="stat-online-users" style="color: var(--accent-success);">0</h3>
+                                <p class="metric-subtext"><span class="online-pill online" style="padding: 1px 6px; font-size: 0.68rem;"><span class="dot"></span> Online Now</span></p>
                             </div>
                         </div>
 
-                        <div class="metric-card glass-panel">
-                            <div class="icon-box green"><i class="fa-solid fa-file-shield"></i></div>
+                        <div class="metric-card">
+                            <div class="icon-box teal"><i class="fa-solid fa-file-shield"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Encrypted Files Stored</span>
+                                <span class="metric-label">Vault Files</span>
                                 <h3 id="stat-total-files">0</h3>
-                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">All user vaults</p>
+                                <p class="metric-subtext">All user vaults</p>
                             </div>
                         </div>
 
-                        <div class="metric-card glass-panel">
+                        <div class="metric-card">
                             <div class="icon-box purple"><i class="fa-solid fa-hard-drive"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Vault Storage Used</span>
+                                <span class="metric-label">Storage Used</span>
                                 <h3 id="stat-storage-used">0 MB</h3>
-                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">AES-256 encrypted</p>
+                                <p class="metric-subtext">AES-256 encrypted</p>
                             </div>
                         </div>
 
-                        <div class="metric-card glass-panel">
-                            <div class="icon-box blue" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;"><i class="fa-solid fa-share-nodes"></i></div>
+                        <div class="metric-card">
+                            <div class="icon-box amber"><i class="fa-solid fa-share-nodes"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Active Share Links</span>
+                                <span class="metric-label">Active Shares</span>
                                 <h3 id="stat-active-shares">0</h3>
-                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">Protected links</p>
+                                <p class="metric-subtext">Protected links</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Admin Sub-Navigation Tabs -->
-                    <div class="admin-subtabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; flex-wrap: wrap;">
-                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn active" id="btn-admintab-users" onclick="switchAdminSubTab('users')">
+                    <div class="admin-subtabs">
+                        <button type="button" class="admin-subtab-btn active" id="btn-admintab-users" onclick="switchAdminSubTab('users')">
                             <i class="fa-solid fa-users"></i> Registered Students & Users (<span id="admin-subtab-users-count">0</span>)
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-files" onclick="switchAdminSubTab('files')">
+                        <button type="button" class="admin-subtab-btn" id="btn-admintab-files" onclick="switchAdminSubTab('files')">
                             <i class="fa-solid fa-folder-open"></i> All System Files (<span id="admin-subtab-files-count">0</span>)
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-clients" onclick="switchAdminSubTab('clients')">
+                        <button type="button" class="admin-subtab-btn" id="btn-admintab-clients" onclick="switchAdminSubTab('clients')">
                             <i class="fa-solid fa-circle-dot text-success"></i> Logged-In Clients (<span id="admin-subtab-clients-count">0</span>)
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-activity" onclick="switchAdminSubTab('activity')">
+                        <button type="button" class="admin-subtab-btn" id="btn-admintab-activity" onclick="switchAdminSubTab('activity')">
                             <i class="fa-solid fa-list-check text-primary"></i> All System Activity & Audits (<span id="admin-subtab-activity-count">0</span>)
                         </button>
                     </div>
 
                     <!-- Panel 1: Registered Students & Users -->
                     <div id="admin-panel-users" class="admin-panel active">
-                        <div class="table-container glass-panel">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                                <h3 style="margin: 0; font-size: 1.1rem;"><i class="fa-solid fa-user-graduate text-primary"></i> Registered Platform Users & Students</h3>
-                                <input type="text" id="admin-user-search" placeholder="Search user by name or email..." oninput="filterAdminUsersTable(this.value)" style="max-width: 280px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: var(--radius-md);">
+                        <div class="table-container">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fa-solid fa-user-graduate text-primary"></i> Registered Platform Users & Students
+                                </h3>
+                                <div class="admin-search-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="admin-user-search" placeholder="Search students by name or email..." oninput="filterAdminUsersTable(this.value)">
+                                </div>
                             </div>
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>User / Student</th>
-                                        <th>Email Address</th>
-                                        <th>Role</th>
-                                        <th>Stored Files</th>
-                                        <th>Online Status</th>
-                                        <th>Account Status</th>
-                                        <th>Registered Date</th>
-                                        <th>Admin Actions</th>
+                                        <th style="min-width: 170px;">User / Student</th>
+                                        <th style="min-width: 170px;">Email Address</th>
+                                        <th style="min-width: 85px;">Role</th>
+                                        <th style="min-width: 120px;">Stored Files</th>
+                                        <th style="min-width: 100px;">Online Status</th>
+                                        <th style="min-width: 90px;">Account Status</th>
+                                        <th style="min-width: 100px;">Registered Date</th>
+                                        <th style="min-width: 180px;">Admin Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-users-table">
@@ -512,20 +517,25 @@
 
                     <!-- Panel 2: All System Files -->
                     <div id="admin-panel-files" class="admin-panel" style="display: none;">
-                        <div class="table-container glass-panel">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                                <h3 style="margin: 0; font-size: 1.1rem;"><i class="fa-solid fa-boxes-stacked text-primary"></i> All Vault Files & Payloads</h3>
-                                <input type="text" id="admin-file-search" placeholder="Search file by name or owner..." oninput="filterAdminFilesTable(this.value)" style="max-width: 280px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: var(--radius-md);">
+                        <div class="table-container">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fa-solid fa-boxes-stacked text-primary"></i> All Vault Files & Payloads
+                                </h3>
+                                <div class="admin-search-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="admin-file-search" placeholder="Search file by name or owner..." oninput="filterAdminFilesTable(this.value)">
+                                </div>
                             </div>
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>File Name</th>
-                                        <th>Owner / Student</th>
-                                        <th>Size</th>
-                                        <th>Folder</th>
-                                        <th>Uploaded Date</th>
-                                        <th>Actions</th>
+                                        <th style="min-width: 180px;">File Name</th>
+                                        <th style="min-width: 160px;">Owner / Student</th>
+                                        <th style="min-width: 90px;">Size</th>
+                                        <th style="min-width: 100px;">Folder</th>
+                                        <th style="min-width: 120px;">Uploaded Date</th>
+                                        <th style="min-width: 160px;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-files-table">
@@ -537,16 +547,18 @@
 
                     <!-- Panel 3: Active Logged-In Clients -->
                     <div id="admin-panel-clients" class="admin-panel" style="display: none;">
-                        <div class="table-container glass-panel">
-                            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;"><i class="fa-solid fa-satellite-dish text-success"></i> Currently Connected / Logged-In Client Sessions</h3>
+                        <div class="table-container">
+                            <h3 style="margin-bottom: 0.85rem; font-size: 1.05rem; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-satellite-dish text-success"></i> Currently Connected / Logged-In Client Sessions
+                            </h3>
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Client Name</th>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Live Status</th>
-                                        <th>Last Heartbeat</th>
+                                        <th style="min-width: 160px;">Client Name</th>
+                                        <th style="min-width: 170px;">Email</th>
+                                        <th style="min-width: 90px;">Role</th>
+                                        <th style="min-width: 110px;">Live Status</th>
+                                        <th style="min-width: 130px;">Last Heartbeat</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-clients-table">
@@ -558,17 +570,20 @@
 
                     <!-- Panel 4: All System Activity & Security Logs -->
                     <div id="admin-panel-activity" class="admin-panel" style="display: none;">
-                        <div class="table-container glass-panel">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+                        <div class="table-container">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.75rem;">
                                 <div>
-                                    <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 0.5rem;">
                                         <i class="fa-solid fa-shield-halved text-primary"></i> Live Activity & Security Audit Stream
                                     </h3>
-                                    <p class="subtext" style="font-size: 0.78rem; margin: 0.2rem 0 0 0;">Monitoring zero-trust events, logins, file operations, and security alerts across all users.</p>
+                                    <p class="subtext" style="font-size: 0.78rem; margin: 0.15rem 0 0 0;">Monitoring zero-trust events, logins, file operations, and security alerts across all users.</p>
                                 </div>
                                 
                                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                                    <input type="text" id="admin-activity-search" placeholder="Search activity, user, or IP..." oninput="filterAdminActivitySearch(this.value)" style="max-width: 240px; padding: 0.35rem 0.75rem; font-size: 0.82rem; border-radius: var(--radius-md);">
+                                    <div class="admin-search-wrapper">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="admin-activity-search" placeholder="Search user, action, IP..." oninput="filterAdminActivitySearch(this.value)">
+                                    </div>
                                     <button type="button" class="btn btn-sm btn-outline" onclick="loadAdminAllActivityLogs()" title="Refresh Activity Stream">
                                         <i class="fa-solid fa-arrows-rotate"></i>
                                     </button>
@@ -576,7 +591,7 @@
                             </div>
 
                             <!-- Category Filter Pills -->
-                            <div style="display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;" id="admin-activity-filter-pills">
+                            <div style="display: flex; gap: 0.4rem; margin-bottom: 0.85rem; flex-wrap: wrap;" id="admin-activity-filter-pills">
                                 <button type="button" class="btn btn-sm btn-primary activity-filter-btn active" onclick="filterAdminActivityCategory('all', this)">All Activity</button>
                                 <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('logins', this)"><i class="fa-solid fa-key"></i> Logins</button>
                                 <button type="button" class="btn btn-sm btn-outline activity-filter-btn" onclick="filterAdminActivityCategory('files', this)"><i class="fa-solid fa-file"></i> File Actions</button>
@@ -587,13 +602,13 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Timestamp</th>
-                                        <th>User / Student</th>
-                                        <th>Action / Event</th>
-                                        <th>Resource</th>
-                                        <th>Details</th>
-                                        <th>IP Address</th>
-                                        <th>Result</th>
+                                        <th style="min-width: 140px;">Timestamp</th>
+                                        <th style="min-width: 160px;">User / Student</th>
+                                        <th style="min-width: 140px;">Action / Event</th>
+                                        <th style="min-width: 110px;">Resource</th>
+                                        <th style="min-width: 200px;">Details</th>
+                                        <th style="min-width: 95px;">IP Address</th>
+                                        <th style="min-width: 95px;">Result</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-activity-table">
@@ -1418,6 +1433,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=2.0"></script>
+    <script src="/js/app.js?v=2.1"></script>
 </body>
 </html>
