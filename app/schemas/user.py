@@ -96,6 +96,34 @@ class UserStatusUpdate(BaseModel):
     is_active: Optional[bool] = None
     role: Optional[UserRole] = None
 
+class AdminUserEdit(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
+    new_password: Optional[str] = None
+
+    @field_validator('name')
+    def name_not_empty(cls, v):
+        if v is not None:
+            if not v.strip():
+                raise ValueError("Name cannot be empty")
+            return v.strip()
+        return v
+
+    @field_validator('email')
+    def email_valid(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Email cannot be empty")
+            email_regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+            if not re.match(email_regex, v):
+                raise ValueError("Invalid email format")
+            return v.lower()
+        return v
+
 class UserProfileUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 

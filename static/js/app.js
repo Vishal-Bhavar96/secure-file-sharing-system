@@ -1762,6 +1762,8 @@ function renderAdminUsersTable(users) {
         const filesText = `<strong>${u.files_count || 0} files</strong> <span class="subtext">(${formatBytes(u.storage_used_bytes || 0)})</span>`;
 
         const isSelf = (currentUser && currentUser.id === u.id);
+        const jsEscapedName = escapeHtml(u.name || '').replace(/'/g, "\\'");
+        const jsEscapedEmail = escapeHtml(u.email || '').replace(/'/g, "\\'");
 
         return `
             <tr>
@@ -1783,13 +1785,19 @@ function renderAdminUsersTable(users) {
                 <td>${statusBadge}</td>
                 <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>
-                    <div class="demo-btn-group" style="gap: 0.35rem;">
+                    <div class="demo-btn-group" style="gap: 0.35rem; display: flex; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-sm btn-outline" onclick="openAdminEditUserModal(${u.id})" title="Edit Student Data & Password" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                            <i class="fa-solid fa-user-pen text-primary"></i> Edit
+                        </button>
                         ${!isSelf ? `
                             <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
                                 <i class="fa-solid ${u.is_active ? 'fa-user-slash text-danger' : 'fa-user-check text-success'}"></i> ${u.is_active ? 'Suspend' : 'Activate'}
                             </button>
                             <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
                                 <i class="fa-solid fa-arrows-rotate"></i> ${u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
+                            </button>
+                            <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteUser(${u.id}, '${jsEscapedName}', '${jsEscapedEmail}')" title="Delete Student & Stored Data" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                                <i class="fa-solid fa-trash"></i> Delete
                             </button>
                         ` : `<span class="badge" style="font-size: 0.7rem;">Your Account</span>`}
                     </div>
@@ -1856,6 +1864,241 @@ async function toggleUserRole(userId, currentRole) {
     }
 }
 
+// ==========================================
+// Admin Edit & Delete Operations
+// ==========================================
+async function openAdminEditUserModal(userId) {
+    const user = adminCachedUsers.find(u => u.id === userId);
+    if (!user) {
+        showToast('Loading student details...', 'info');
+        try {
+            const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!res.ok) throw new Error('User not found');
+            const data = await res.json();
+            populateAdminEditUserModal(data);
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+        return;
+    }
+    populateAdminEditUserModal(user);
+}
+
+function populateAdminEditUserModal(user) {
+    document.getElementById('admin-edit-user-id').value = user.id;
+    document.getElementById('admin-edit-name').value = user.name || '';
+    document.getElementById('admin-edit-email').value = user.email || '';
+    document.getElementById('admin-edit-username').value = user.username || '';
+    document.getElementById('admin-edit-role').value = user.role || 'USER';
+    document.getElementById('admin-edit-status').value = user.is_active ? 'true' : 'false';
+    document.getElementById('admin-edit-password').value = '';
+
+    const msg = document.getElementById('admin-edit-user-msg');
+    if (msg) msg.style.display = 'none';
+
+    const deleteShortcutBtn = document.getElementById('btn-admin-edit-delete-shortcut');
+    if (deleteShortcutBtn) {
+        deleteShortcutBtn.style.display = (currentUser && currentUser.id === user.id) ? 'none' : 'inline-flex';
+    }
+
+    openModal('modal-admin-edit-user');
+}
+
+async function submitAdminEditUser(e) {
+    if (e) e.preventDefault();
+    const userId = parseInt(document.getElementById('admin-edit-user-id').value);
+    const name = document.getElementById('admin-edit-name').value.trim();
+    const email = document.getElementById('admin-edit-email').value.trim();
+    const username = document.getElementById('admin-edit-username').value.trim();
+    const role = document.getElementById('admin-edit-role').value;
+    const is_active = document.getElementById('admin-edit-status').value === 'true';
+    const new_password = document.getElementById('admin-edit-password').value;
+
+    const msg = document.getElementById('admin-edit-user-msg');
+    const submitBtn = document.getElementById('btn-submit-admin-edit-user');
+
+    if (!name || !email) {
+        if (msg) {
+            msg.textContent = 'Name and Email are required.';
+            msg.style.display = 'block';
+            msg.style.background = 'var(--bg-error)';
+            msg.style.color = 'var(--accent-error)';
+        }
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    }
+
+    try {
+        const body = { name, email, username, role, is_active };
+        if (new_password && new_password.trim()) {
+            body.new_password = new_password.trim();
+        }
+
+        const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to update student data');
+
+        showToast(`Student data for '${name}' updated successfully!`, 'success');
+        closeModal('modal-admin-edit-user');
+        loadAdminStats();
+    } catch (err) {
+        if (msg) {
+            msg.textContent = err.message;
+            msg.style.display = 'block';
+            msg.style.background = 'var(--bg-error)';
+            msg.style.color = 'var(--accent-error)';
+        }
+        showToast(err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Student Data';
+        }
+    }
+}
+
+function onAdminEditDeleteShortcut() {
+    const userId = parseInt(document.getElementById('admin-edit-user-id').value);
+    const name = document.getElementById('admin-edit-name').value;
+    const email = document.getElementById('admin-edit-email').value;
+    closeModal('modal-admin-edit-user');
+    confirmAdminDeleteUser(userId, name, email);
+}
+
+function confirmAdminDeleteUser(userId, name, email) {
+    if (currentUser && currentUser.id === userId) {
+        showToast('You cannot delete your own logged-in admin account.', 'error');
+        return;
+    }
+
+    document.getElementById('admin-delete-confirm-title').textContent = `Delete Student Account?`;
+    document.getElementById('admin-delete-confirm-desc').innerHTML = `
+        Are you sure you want to permanently delete student <strong>${escapeHtml(name)}</strong> (${escapeHtml(email)})?
+        <br><br>
+        <span style="color: var(--accent-error); font-weight: 600;">
+            ⚠️ This will permanently erase this account and all their uploaded vault files.
+        </span>
+    `;
+
+    const actionBtn = document.getElementById('btn-admin-confirm-delete-action');
+    actionBtn.onclick = () => executeAdminDeleteUser(userId);
+
+    openModal('modal-admin-confirm-delete');
+}
+
+async function executeAdminDeleteUser(userId) {
+    const actionBtn = document.getElementById('btn-admin-confirm-delete-action');
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to delete user');
+
+        closeModal('modal-admin-confirm-delete');
+        showToast(data.message || 'Student and all associated files deleted successfully.', 'success');
+        loadAdminStats();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Yes, Delete Permanently';
+        }
+    }
+}
+
+function confirmAdminDeleteFile(fileId, filename, ownerName) {
+    document.getElementById('admin-delete-confirm-title').textContent = `Delete Stored Vault File?`;
+    document.getElementById('admin-delete-confirm-desc').innerHTML = `
+        Are you sure you want to permanently delete file <strong>${escapeHtml(filename)}</strong> owned by <strong>${escapeHtml(ownerName)}</strong>?
+        <br><br>
+        <span style="color: var(--accent-error); font-weight: 600;">
+            ⚠️ The encrypted payload will be removed permanently from server storage.
+        </span>
+    `;
+
+    const actionBtn = document.getElementById('btn-admin-confirm-delete-action');
+    actionBtn.onclick = () => executeAdminDeleteFile(fileId);
+
+    openModal('modal-admin-confirm-delete');
+}
+
+async function executeAdminDeleteFile(fileId) {
+    const actionBtn = document.getElementById('btn-admin-confirm-delete-action');
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to delete file');
+
+        closeModal('modal-admin-confirm-delete');
+        showToast(data.message || 'File permanently deleted.', 'success');
+        loadAdminStats();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Yes, Delete Permanently';
+        }
+    }
+}
+
+async function downloadAdminSystemFile(fileId, filename) {
+    try {
+        showToast(`Preparing download for '${filename}'...`, 'info');
+        const res = await fetch(`${API_BASE}/files/${fileId}/download`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Download failed');
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast(`Downloaded '${filename}'`, 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 async function loadAdminFilesTable() {
     const tbody = document.getElementById('admin-files-table');
     if (!tbody) return;
@@ -1884,6 +2127,7 @@ function renderAdminFilesTable(files) {
 
     tbody.innerHTML = files.map(f => {
         const jsEscapedName = escapeHtml(f.filename).replace(/'/g, "\\'");
+        const jsEscapedOwner = escapeHtml(f.owner_name || '').replace(/'/g, "\\'");
         return `
             <tr>
                 <td><strong><i class="fa-solid fa-file-shield text-primary"></i> ${escapeHtml(f.filename)}</strong></td>
@@ -1895,9 +2139,17 @@ function renderAdminFilesTable(files) {
                 <td><span class="badge">${escapeHtml(f.folder || '/')}</span></td>
                 <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(f.created_at).toLocaleString()}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online">
-                        <i class="fa-solid fa-eye text-primary"></i> View
-                    </button>
+                    <div class="demo-btn-group" style="gap: 0.35rem; display: flex; align-items: center;">
+                        <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                            <i class="fa-solid fa-eye text-primary"></i> View
+                        </button>
+                        <button class="btn btn-sm btn-outline" onclick="downloadAdminSystemFile(${f.id}, '${jsEscapedName}')" title="Download Decrypted File" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                            <i class="fa-solid fa-download"></i> Download
+                        </button>
+                        <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteFile(${f.id}, '${jsEscapedName}', '${jsEscapedOwner}')" title="Delete Stored File" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                            <i class="fa-solid fa-trash"></i> Delete
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -1918,6 +2170,7 @@ function filterAdminFilesTable(query) {
     );
     renderAdminFilesTable(filtered);
 }
+
 
 async function loadAdminClientsTable() {
     const tbody = document.getElementById('admin-clients-table');
