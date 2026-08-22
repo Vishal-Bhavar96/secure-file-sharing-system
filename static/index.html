@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css?v=2.1">
+    <link rel="stylesheet" href="/css/style.css?v=2.2">
 </head>
 <body class="clean-theme">
     <div id="app" class="app-container">
@@ -498,18 +498,15 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 170px;">User / Student</th>
-                                        <th style="min-width: 170px;">Email Address</th>
-                                        <th style="min-width: 85px;">Role</th>
-                                        <th style="min-width: 120px;">Stored Files</th>
-                                        <th style="min-width: 100px;">Online Status</th>
-                                        <th style="min-width: 90px;">Account Status</th>
-                                        <th style="min-width: 100px;">Registered Date</th>
-                                        <th style="min-width: 180px;">Admin Actions</th>
+                                        <th>User / Student Account</th>
+                                        <th>Role & Status</th>
+                                        <th>Vault Storage</th>
+                                        <th>Activity Status</th>
+                                        <th style="text-align: right; padding-right: 1rem;">Admin Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-users-table">
-                                    <tr><td colspan="8" class="text-center">Loading registered users directory...</td></tr>
+                                    <tr><td colspan="5" class="text-center">Loading registered users directory...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -530,16 +527,14 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 180px;">File Name</th>
-                                        <th style="min-width: 160px;">Owner / Student</th>
-                                        <th style="min-width: 90px;">Size</th>
-                                        <th style="min-width: 100px;">Folder</th>
-                                        <th style="min-width: 120px;">Uploaded Date</th>
-                                        <th style="min-width: 160px;">Actions</th>
+                                        <th>File & Folder</th>
+                                        <th>Owner / Student</th>
+                                        <th>Size & Uploaded</th>
+                                        <th style="text-align: right; padding-right: 1rem;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-files-table">
-                                    <tr><td colspan="6" class="text-center">Loading system files...</td></tr>
+                                    <tr><td colspan="4" class="text-center">Loading system files...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -554,15 +549,13 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 160px;">Client Name</th>
-                                        <th style="min-width: 170px;">Email</th>
-                                        <th style="min-width: 90px;">Role</th>
-                                        <th style="min-width: 110px;">Live Status</th>
-                                        <th style="min-width: 130px;">Last Heartbeat</th>
+                                        <th>Client / Student</th>
+                                        <th>Role</th>
+                                        <th>Live Status & Time</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-clients-table">
-                                    <tr><td colspan="5" class="text-center">Loading active client sessions...</td></tr>
+                                    <tr><td colspan="3" class="text-center">Loading active client sessions...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -602,17 +595,15 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 140px;">Timestamp</th>
-                                        <th style="min-width: 160px;">User / Student</th>
-                                        <th style="min-width: 140px;">Action / Event</th>
-                                        <th style="min-width: 110px;">Resource</th>
-                                        <th style="min-width: 200px;">Details</th>
-                                        <th style="min-width: 95px;">IP Address</th>
-                                        <th style="min-width: 95px;">Result</th>
+                                        <th>Timestamp & IP</th>
+                                        <th>User / Client</th>
+                                        <th>Action / Event</th>
+                                        <th>Activity Details</th>
+                                        <th style="text-align: right; padding-right: 1rem;">Result</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-activity-table">
-                                    <tr><td colspan="7" class="text-center">Loading live system activity stream...</td></tr>
+                                    <tr><td colspan="5" class="text-center">Loading live system activity stream...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1433,6 +1424,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=2.1"></script>
+    <script src="/js/app.js?v=2.2"></script>
 </body>
 </html>

@@ -1741,25 +1741,23 @@ function renderAdminUsersTable(users) {
     if (!tbody) return;
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center subtext">No registered users found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 1.5rem;">No registered users found.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = users.map(u => {
         const isOnline = u.is_online;
         const onlinePill = isOnline 
-            ? `<span class="online-pill online"><span class="dot"></span> Active now</span>`
-            : `<span class="online-pill offline" style="opacity: 0.75;"><span class="dot"></span> ${escapeHtml(u.last_seen_text || 'Offline')}</span>`;
+            ? `<span class="online-pill online" style="font-size: 0.72rem; padding: 2px 7px;"><span class="dot"></span> Active now</span>`
+            : `<span class="online-pill offline" style="font-size: 0.72rem; padding: 2px 7px; opacity: 0.8;"><span class="dot"></span> ${escapeHtml(u.last_seen_text || 'Offline')}</span>`;
 
         const roleBadge = u.role === 'ADMIN'
-            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);"><i class="fa-solid fa-crown"></i> Admin</span>`
-            : `<span class="badge" style="background: rgba(37, 99, 235, 0.18); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3);"><i class="fa-solid fa-graduation-cap"></i> Student</span>`;
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-crown"></i> Admin</span>`
+            : `<span class="badge" style="background: rgba(37, 99, 235, 0.15); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.3); font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-graduation-cap"></i> Student</span>`;
 
         const statusBadge = u.is_active
-            ? `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>`
-            : `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Suspended</span>`;
-
-        const filesText = `<strong>${u.files_count || 0} files</strong> <span class="subtext">(${formatBytes(u.storage_used_bytes || 0)})</span>`;
+            ? `<span class="badge badge-success" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-circle-check"></i> Active</span>`
+            : `<span class="badge badge-danger" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid fa-ban"></i> Suspended</span>`;
 
         const isSelf = (currentUser && currentUser.id === u.id);
         const jsEscapedName = escapeHtml(u.name || '').replace(/'/g, "\\'");
@@ -1768,38 +1766,46 @@ function renderAdminUsersTable(users) {
         return `
             <tr>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.6rem;">
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.8rem;">
+                    <div style="display: flex; align-items: center; gap: 0.55rem;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.78rem; flex-shrink: 0;">
                             ${escapeHtml((u.name || 'U').charAt(0).toUpperCase())}
                         </div>
-                        <div>
-                            <strong style="color: var(--text-heading);">${escapeHtml(u.name)}</strong>
-                            <div class="subtext" style="font-size: 0.75rem;">@${escapeHtml(u.username || 'user')}</div>
+                        <div style="min-width: 0;">
+                            <strong style="color: var(--text-heading); font-size: 0.86rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.name)}</strong>
+                            <div class="subtext" style="font-size: 0.73rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(u.email)} <span style="opacity: 0.7;">• @${escapeHtml(u.username || 'user')}</span></div>
                         </div>
                     </div>
                 </td>
-                <td><span style="font-size: 0.88rem;">${escapeHtml(u.email)}</span></td>
-                <td>${roleBadge}</td>
-                <td>${filesText}</td>
-                <td>${onlinePill}</td>
-                <td>${statusBadge}</td>
-                <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(u.created_at).toLocaleDateString()}</td>
                 <td>
-                    <div class="demo-btn-group" style="gap: 0.35rem; display: flex; align-items: center; flex-wrap: wrap;">
-                        <button class="btn btn-sm btn-outline" onclick="openAdminEditUserModal(${u.id})" title="Edit Student Data & Password" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                            <i class="fa-solid fa-user-pen text-primary"></i> Edit
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                        ${roleBadge}
+                        ${statusBadge}
+                    </div>
+                    <div class="subtext" style="font-size: 0.7rem; margin-top: 2px;">Joined ${new Date(u.created_at).toLocaleDateString()}</div>
+                </td>
+                <td>
+                    <strong style="font-size: 0.84rem; color: var(--text-heading);">${u.files_count || 0} files</strong>
+                    <div class="subtext" style="font-size: 0.72rem;">${formatBytes(u.storage_used_bytes || 0)}</div>
+                </td>
+                <td>
+                    ${onlinePill}
+                </td>
+                <td>
+                    <div class="demo-btn-group" style="gap: 0.3rem; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                        <button class="btn btn-sm btn-outline" onclick="openAdminEditUserModal(${u.id})" title="Edit Student Data & Password" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <i class="fa-solid fa-pen text-primary"></i> Edit
                         </button>
                         ${!isSelf ? `
-                            <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                                <i class="fa-solid ${u.is_active ? 'fa-user-slash text-danger' : 'fa-user-check text-success'}"></i> ${u.is_active ? 'Suspend' : 'Activate'}
+                            <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                                <i class="fa-solid ${u.is_active ? 'fa-ban text-danger' : 'fa-check text-success'}"></i> ${u.is_active ? 'Suspend' : 'Activate'}
                             </button>
-                            <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                            <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
                                 <i class="fa-solid fa-arrows-rotate"></i> ${u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
                             </button>
-                            <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteUser(${u.id}, '${jsEscapedName}', '${jsEscapedEmail}')" title="Delete Student & Stored Data" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                                <i class="fa-solid fa-trash"></i> Delete
+                            <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteUser(${u.id}, '${jsEscapedName}', '${jsEscapedEmail}')" title="Delete Student & Stored Data" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                                <i class="fa-solid fa-trash"></i>
                             </button>
-                        ` : `<span class="badge" style="font-size: 0.7rem;">Your Account</span>`}
+                        ` : `<span class="badge" style="font-size: 0.68rem; padding: 2px 6px;">Your Account</span>`}
                     </div>
                 </td>
             </tr>
@@ -2121,7 +2127,7 @@ function renderAdminFilesTable(files) {
     if (!tbody) return;
 
     if (!files || files.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">No stored files in platform vaults.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext" style="padding: 1.5rem;">No stored files in platform vaults.</td></tr>`;
         return;
     }
 
@@ -2130,24 +2136,33 @@ function renderAdminFilesTable(files) {
         const jsEscapedOwner = escapeHtml(f.owner_name || '').replace(/'/g, "\\'");
         return `
             <tr>
-                <td><strong><i class="fa-solid fa-file-shield text-primary"></i> ${escapeHtml(f.filename)}</strong></td>
                 <td>
-                    <div style="font-weight: 600; color: var(--text-heading); font-size: 0.88rem;">${escapeHtml(f.owner_name)}</div>
-                    <div class="subtext" style="font-size: 0.75rem;">${escapeHtml(f.owner_email)}</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-file-shield text-primary" style="font-size: 1.1rem; flex-shrink: 0;"></i>
+                        <div style="min-width: 0;">
+                            <strong style="color: var(--text-heading); font-size: 0.86rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.filename)}</strong>
+                            <div class="subtext" style="font-size: 0.72rem;">📁 ${escapeHtml(f.folder || '/')}</div>
+                        </div>
+                    </div>
                 </td>
-                <td>${formatBytes(f.file_size)}</td>
-                <td><span class="badge">${escapeHtml(f.folder || '/')}</span></td>
-                <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(f.created_at).toLocaleString()}</td>
                 <td>
-                    <div class="demo-btn-group" style="gap: 0.35rem; display: flex; align-items: center;">
-                        <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                    <strong style="color: var(--text-heading); font-size: 0.84rem; display: block;">${escapeHtml(f.owner_name)}</strong>
+                    <div class="subtext" style="font-size: 0.72rem;">${escapeHtml(f.owner_email)}</div>
+                </td>
+                <td>
+                    <strong style="font-size: 0.84rem; color: var(--text-heading);">${formatBytes(f.file_size)}</strong>
+                    <div class="subtext" style="font-size: 0.72rem;">${new Date(f.created_at).toLocaleDateString()}</div>
+                </td>
+                <td>
+                    <div class="demo-btn-group" style="gap: 0.3rem; display: flex; align-items: center; justify-content: flex-end;">
+                        <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
                             <i class="fa-solid fa-eye text-primary"></i> View
                         </button>
-                        <button class="btn btn-sm btn-outline" onclick="downloadAdminSystemFile(${f.id}, '${jsEscapedName}')" title="Download Decrypted File" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                            <i class="fa-solid fa-download"></i> Download
+                        <button class="btn btn-sm btn-outline" onclick="downloadAdminSystemFile(${f.id}, '${jsEscapedName}')" title="Download Decrypted File" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <i class="fa-solid fa-download"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteFile(${f.id}, '${jsEscapedName}', '${jsEscapedOwner}')" title="Delete Stored File" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                            <i class="fa-solid fa-trash"></i> Delete
+                        <button class="btn btn-sm btn-danger-outline" onclick="confirmAdminDeleteFile(${f.id}, '${jsEscapedName}', '${jsEscapedOwner}')" title="Delete Stored File" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; height: 30px;">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
                 </td>
@@ -2184,21 +2199,38 @@ async function loadAdminClientsTable() {
         const clients = await res.json();
 
         if (!clients || clients.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext">No active client sessions right now.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center subtext" style="padding: 1.5rem;">No active client sessions right now.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = clients.map(c => `
             <tr>
-                <td><strong>${escapeHtml(c.name)}</strong></td>
-                <td>${escapeHtml(c.email)}</td>
-                <td><span class="badge">${escapeHtml(c.role)}</span></td>
-                <td><span class="online-pill ${c.is_online ? 'online' : 'offline'}"><span class="dot"></span> ${escapeHtml(c.last_seen_text)}</span></td>
-                <td style="font-size: 0.82rem; color: var(--text-muted);">${c.last_seen_at ? new Date(c.last_seen_at).toLocaleTimeString() : 'N/A'}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;">
+                            ${escapeHtml((c.name || 'U').charAt(0).toUpperCase())}
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.86rem; color: var(--text-heading);">${escapeHtml(c.name)}</strong>
+                            <div class="subtext" style="font-size: 0.72rem;">${escapeHtml(c.email)}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${c.role === 'ADMIN' ? 'badge-warning' : 'badge-blue'}" style="font-size: 0.72rem; padding: 2px 7px;">
+                        ${escapeHtml(c.role)}
+                    </span>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="online-pill ${c.is_online ? 'online' : 'offline'}" style="font-size: 0.72rem; padding: 2px 7px;"><span class="dot"></span> ${escapeHtml(c.last_seen_text)}</span>
+                        <span class="subtext" style="font-size: 0.72rem;">(${c.last_seen_at ? new Date(c.last_seen_at).toLocaleTimeString() : 'N/A'})</span>
+                    </div>
+                </td>
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">${err.message}</td></tr>`;
     }
 }
 
@@ -2213,7 +2245,7 @@ async function loadAdminAllActivityLogs() {
     const tbody = document.getElementById('admin-activity-table');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center">Loading live system activity stream...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding: 1.5rem;">Loading live system activity stream...</td></tr>`;
 
     try {
         const logsRes = await fetch(`${API_BASE}/audit/logs?limit=150`, {
@@ -2228,7 +2260,7 @@ async function loadAdminAllActivityLogs() {
 
         applyAdminActivityFilters();
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${err.message}</td></tr>`;
     }
 }
 
@@ -2288,7 +2320,7 @@ function renderAdminActivityTable(logs) {
     if (!tbody) return;
 
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center subtext" style="padding: 1.5rem;">No activity records match the selected filter.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext" style="padding: 1.5rem;">No activity records match the selected filter.</td></tr>`;
         return;
     }
 
@@ -2319,22 +2351,26 @@ function renderAdminActivityTable(logs) {
         }
 
         const userDisplay = l.user_email 
-            ? `<strong style="color: var(--text-heading); font-size: 0.84rem;">${escapeHtml(l.user_email)}</strong>`
-            : `<span class="subtext" style="font-size: 0.8rem;">Anonymous / System</span>`;
+            ? `<strong style="color: var(--text-heading); font-size: 0.82rem;">${escapeHtml(l.user_email)}</strong>`
+            : `<span class="subtext" style="font-size: 0.78rem;">Anonymous / System</span>`;
 
         const resultBadge = l.success 
-            ? `<span style="color: var(--accent-success); font-weight: 600; font-size: 0.82rem;"><i class="fa-solid fa-circle-check"></i> Success</span>`
-            : `<span style="color: var(--accent-error); font-weight: 600; font-size: 0.82rem;"><i class="fa-solid fa-circle-xmark"></i> Denied / Fail</span>`;
+            ? `<span style="color: var(--accent-success); font-weight: 600; font-size: 0.78rem;"><i class="fa-solid fa-circle-check"></i> Success</span>`
+            : `<span style="color: var(--accent-error); font-weight: 600; font-size: 0.78rem;"><i class="fa-solid fa-circle-xmark"></i> Denied</span>`;
 
         return `
             <tr>
-                <td style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">${timeStr}</td>
+                <td style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+                    ${timeStr}
+                    <div class="subtext" style="font-family: monospace; font-size: 0.7rem;">${escapeHtml(l.ip_address || '127.0.0.1')}</div>
+                </td>
                 <td>${userDisplay}</td>
-                <td><span class="badge ${actionBadgeClass}" style="font-size: 0.75rem;"><i class="fa-solid ${actionIcon}"></i> ${escapeHtml(l.action)}</span></td>
-                <td style="font-size: 0.82rem; font-family: monospace; color: var(--text-body);">${escapeHtml(l.resource || '-')}</td>
-                <td style="font-size: 0.82rem; max-width: 260px; word-break: break-word;">${escapeHtml(l.details || '-')}</td>
-                <td style="font-size: 0.78rem; font-family: monospace; color: var(--text-muted);">${escapeHtml(l.ip_address || '127.0.0.1')}</td>
-                <td>${resultBadge}</td>
+                <td><span class="badge ${actionBadgeClass}" style="font-size: 0.72rem; padding: 2px 6px;"><i class="fa-solid ${actionIcon}"></i> ${escapeHtml(l.action)}</span></td>
+                <td>
+                    <div style="font-size: 0.82rem; max-width: 320px; word-break: break-word; color: var(--text-heading);">${escapeHtml(l.details || '-')}</div>
+                    ${l.resource ? `<div class="subtext" style="font-family: monospace; font-size: 0.7rem;">${escapeHtml(l.resource)}</div>` : ''}
+                </td>
+                <td style="text-align: right;">${resultBadge}</td>
             </tr>
         `;
     }).join('');
