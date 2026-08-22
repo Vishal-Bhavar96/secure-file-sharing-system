@@ -18,6 +18,9 @@ class AuditLogOut(BaseModel):
 
 class SystemStatsOut(BaseModel):
     total_users: int
+    total_students: int = 0
+    total_admins: int = 0
+    online_users_count: int = 0
     total_files: int
     storage_used_bytes: int
     active_shares: int

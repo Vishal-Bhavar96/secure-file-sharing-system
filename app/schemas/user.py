@@ -65,6 +65,37 @@ class UserOut(BaseModel):
     last_seen_text: str = "Offline"
     last_password_change_at: Optional[datetime] = None
 
+class AdminUserDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    email: str
+    username: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    has_avatar: bool = False
+    files_count: int = 0
+    storage_used_bytes: int = 0
+    is_online: bool = False
+    last_seen_text: str = "Offline"
+    last_login_at: Optional[datetime] = None
+
+class DirectoryUserOut(BaseModel):
+    id: int
+    name: str
+    email: str
+    username: str
+    role: UserRole
+    has_avatar: bool = False
+    is_online: bool = False
+    last_seen_text: str = "Offline"
+
+class UserStatusUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    role: Optional[UserRole] = None
+
 class UserProfileUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 

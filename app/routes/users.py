@@ -187,28 +187,34 @@ def revoke_other_user_sessions(
     count = revoke_other_sessions(db, user=current_user, current_token=token, ip_address=ip)
     return {"message": f"Successfully revoked {count} other active session(s)", "count": count}
 
-@router.get("/search")
-def search_users(
-    q: str = "",
+@router.get("/students")
+@router.get("/directory")
+def get_students_directory(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = q.strip()
-    if not query:
-        return []
-    users = db.query(User).filter(
-        User.id != current_user.id,
-        User.is_active == True,
-        (User.email.ilike(f"%{query}%")) | (User.username.ilike(f"%{query}%")) | (User.name.ilike(f"%{query}%"))
-    ).limit(10).all()
-    return [{
-        "id": u.id,
-        "name": u.name,
-        "email": u.email,
-        "username": u.username,
-        "has_avatar": bool(u.avatar_path and os.path.exists(u.avatar_path)),
-        "is_online": is_user_online(u),
-        "last_seen_text": compute_last_seen_text(u)
-    } for u in users]
+    users = db.query(User).filter(User.is_active == True).order_by(User.name.asc()).all()
+    total_count = len(users)
+
+    student_list = []
+    for u in users:
+        if u.id == current_user.id:
+            continue
+        student_list.append({
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "username": u.username,
+            "role": u.role,
+            "has_avatar": bool(u.avatar_path and os.path.exists(u.avatar_path)),
+            "is_online": is_user_online(u),
+            "last_seen_text": compute_last_seen_text(u)
+        })
+
+    return {
+        "total_registered_count": total_count,
+        "other_students_count": len(student_list),
+        "students": student_list
+    }
 
 

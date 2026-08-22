@@ -606,15 +606,165 @@ function handleUserSearchInput(val) {
     }, 200);
 }
 
-function selectUserSearchItem(email) {
-    document.getElementById('share-recipient').value = email;
-    document.getElementById('share-user-results').style.display = 'none';
+let registeredStudentsCache = [];
+
+async function loadRegisteredStudentsDirectory() {
+    const badge = document.getElementById('share-students-count-badge');
+    if (badge) badge.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading...`;
+
+    try {
+        const res = await fetch(`${API_BASE}/users/students`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('Failed to load students directory');
+        const data = await res.json();
+        registeredStudentsCache = data.students || [];
+
+        if (badge) {
+            badge.innerHTML = `<i class="fa-solid fa-user-graduate"></i> ${data.total_registered_count || (registeredStudentsCache.length + 1)} Students`;
+        }
+
+        renderShareClientAutocomplete(registeredStudentsCache);
+    } catch (err) {
+        if (badge) badge.innerHTML = `<i class="fa-solid fa-user-graduate"></i> Directory ready`;
+    }
+}
+
+function renderShareClientAutocomplete(list) {
+    const dropdown = document.getElementById('share-client-autocomplete-list');
+    if (!dropdown) return;
+
+    if (!list || list.length === 0) {
+        dropdown.innerHTML = `
+            <div style="padding: 0.75rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-user-slash"></i> No matching registered clients found.
+            </div>
+        `;
+        return;
+    }
+
+    let itemsHtml = `
+        <div class="share-client-item" onclick="selectSharePublicShare()" style="background: rgba(37, 99, 235, 0.08); margin-bottom: 0.25rem;">
+            <div class="share-client-avatar" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-globe"></i></div>
+            <div class="share-client-info">
+                <div class="share-client-name" style="color: #34d399;">🌐 Public Share (Anyone with Link / Code)</div>
+                <div class="share-client-email">No specific recipient restriction</div>
+            </div>
+            <span class="badge" style="font-size: 0.65rem;">Public</span>
+        </div>
+    `;
+
+    itemsHtml += list.map(student => {
+        const isOnline = student.is_online;
+        const jsEscapedName = escapeHtml(student.name).replace(/'/g, "\\'");
+        const jsEscapedEmail = escapeHtml(student.email).replace(/'/g, "\\'");
+
+        return `
+            <div class="share-client-item" onclick="selectShareClientRecipient('${jsEscapedEmail}', '${jsEscapedName}')">
+                <div class="share-client-avatar">
+                    ${escapeHtml((student.name || 'U').charAt(0).toUpperCase())}
+                </div>
+                <div class="share-client-info">
+                    <div class="share-client-name">${escapeHtml(student.name)} <span class="subtext">(@${escapeHtml(student.username || 'user')})</span></div>
+                    <div class="share-client-email">${escapeHtml(student.email)}</div>
+                </div>
+                <span class="online-pill ${isOnline ? 'online' : 'offline'}" style="font-size: 0.68rem; padding: 1px 6px;">
+                    <span class="dot"></span> ${escapeHtml(student.last_seen_text || 'Offline')}
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    dropdown.innerHTML = itemsHtml;
+}
+
+function onShareClientSearchInput(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('share-client-clear-btn');
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    const filtered = !q 
+        ? registeredStudentsCache 
+        : registeredStudentsCache.filter(s => 
+            (s.name || '').toLowerCase().includes(q) || 
+            (s.email || '').toLowerCase().includes(q) || 
+            (s.username || '').toLowerCase().includes(q)
+        );
+
+    renderShareClientAutocomplete(filtered);
+    showShareClientDropdown();
+}
+
+function showShareClientDropdown() {
+    const dropdown = document.getElementById('share-client-autocomplete-list');
+    if (dropdown) dropdown.style.display = 'block';
+}
+
+function hideShareClientDropdown() {
+    const dropdown = document.getElementById('share-client-autocomplete-list');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Close search dropdown on click outside
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('share-client-autocomplete-list');
+    if (dropdown && dropdown.style.display === 'block') {
+        if (!e.target.closest('#modal-share .search-input-wrapper') && !e.target.closest('#share-client-autocomplete-list')) {
+            hideShareClientDropdown();
+        }
+    }
+});
+
+function selectShareClientRecipient(email, name) {
+    const hiddenInput = document.getElementById('share-recipient');
+    if (hiddenInput) hiddenInput.value = email;
+
+    const searchInput = document.getElementById('share-client-search-input');
+    if (searchInput) searchInput.value = name || email;
+
+    const card = document.getElementById('share-selected-client-card');
+    const nameEl = document.getElementById('share-selected-client-name');
+    const emailEl = document.getElementById('share-selected-client-email');
+    const publicNotice = document.getElementById('share-public-mode-notice');
+    const clearBtn = document.getElementById('share-client-clear-btn');
+
+    if (nameEl) nameEl.textContent = name || email;
+    if (emailEl) emailEl.textContent = `(${email})`;
+    if (card) card.style.display = 'flex';
+    if (publicNotice) publicNotice.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = 'block';
+
+    hideShareClientDropdown();
+}
+
+function selectSharePublicShare() {
+    clearShareRecipientSelection();
+}
+
+function clearShareRecipientSelection() {
+    const hiddenInput = document.getElementById('share-recipient');
+    if (hiddenInput) hiddenInput.value = '';
+
+    const searchInput = document.getElementById('share-client-search-input');
+    if (searchInput) searchInput.value = '';
+
+    const card = document.getElementById('share-selected-client-card');
+    const publicNotice = document.getElementById('share-public-mode-notice');
+    const clearBtn = document.getElementById('share-client-clear-btn');
+
+    if (card) card.style.display = 'none';
+    if (publicNotice) publicNotice.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    renderShareClientAutocomplete(registeredStudentsCache);
+    hideShareClientDropdown();
 }
 
 function openShareModal(id, name) {
     document.getElementById('share-file-id').value = id;
     document.getElementById('share-file-name').textContent = name;
-    if (document.getElementById('share-recipient')) document.getElementById('share-recipient').value = '';
+    clearShareRecipientSelection();
+    loadRegisteredStudentsDirectory();
     document.getElementById('share-permission').value = 'DOWNLOAD';
     document.getElementById('share-expiry-preset-select').value = '24';
     document.getElementById('share-expiry-hours').value = '24';
@@ -1488,7 +1638,29 @@ async function loadAuditLogs() {
     }
 }
 
-// Admin Tab
+// ==========================================
+// Admin Master Portal Operations
+// ==========================================
+let adminCachedUsers = [];
+let adminCachedFiles = [];
+
+function switchAdminSubTab(tabName) {
+    document.querySelectorAll('.admin-subtab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.admin-panel').forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+    });
+
+    const activeBtn = document.getElementById(`btn-admintab-${tabName}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const activePanel = document.getElementById(`admin-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.classList.add('active');
+        activePanel.style.display = 'block';
+    }
+}
+
 async function loadAdminStats() {
     try {
         const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -1498,33 +1670,304 @@ async function loadAdminStats() {
         if (!res.ok) throw new Error('Admin access denied');
         const stats = await res.json();
 
-        document.getElementById('stat-total-users').textContent = stats.total_users;
-        document.getElementById('stat-total-files').textContent = stats.total_files;
-        document.getElementById('stat-storage-used').textContent = formatBytes(stats.storage_used_bytes);
-        document.getElementById('stat-security-events').textContent = stats.security_events;
+        // Metric Cards
+        const statUsers = document.getElementById('stat-total-users');
+        if (statUsers) statUsers.textContent = stats.total_users;
 
-        // Load security events table
-        const logsRes = await fetch(`${API_BASE}/audit/logs?limit=30`, {
+        const statBreakdown = document.getElementById('stat-user-breakdown');
+        if (statBreakdown) statBreakdown.textContent = `${stats.total_students || 0} Students • ${stats.total_admins || 0} Admins`;
+
+        const statOnline = document.getElementById('stat-online-users');
+        if (statOnline) statOnline.textContent = stats.online_users_count || 0;
+
+        const statFiles = document.getElementById('stat-total-files');
+        if (statFiles) statFiles.textContent = stats.total_files;
+
+        const statStorage = document.getElementById('stat-storage-used');
+        if (statStorage) statStorage.textContent = formatBytes(stats.storage_used_bytes);
+
+        const statActiveShares = document.getElementById('stat-active-shares');
+        if (statActiveShares) statActiveShares.textContent = stats.active_shares;
+
+        const statSecEvents = document.getElementById('stat-security-events');
+        if (statSecEvents) statSecEvents.textContent = stats.security_events;
+
+        // Subtab Counters
+        const subUsersCount = document.getElementById('admin-subtab-users-count');
+        if (subUsersCount) subUsersCount.textContent = stats.total_users;
+
+        const subFilesCount = document.getElementById('admin-subtab-files-count');
+        if (subFilesCount) subFilesCount.textContent = stats.total_files;
+
+        const subClientsCount = document.getElementById('admin-subtab-clients-count');
+        if (subClientsCount) subClientsCount.textContent = stats.online_users_count || 0;
+
+        // Load Tab Contents
+        loadAdminUsersTable();
+        loadAdminFilesTable();
+        loadAdminClientsTable();
+        loadAdminSecurityLogs();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function loadAdminUsersTable() {
+    const tbody = document.getElementById('admin-users-table');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/users`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        const logs = await logsRes.json();
-        const securityLogs = logs.filter(l => !l.success || l.action.includes('UNAUTHORIZED') || l.action.includes('FAILED'));
+        if (!res.ok) throw new Error('Failed to load admin users');
+        const users = await res.json();
+        adminCachedUsers = users;
+        renderAdminUsersTable(users);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
 
-        const tbody = document.getElementById('admin-security-table');
+function renderAdminUsersTable(users) {
+    const tbody = document.getElementById('admin-users-table');
+    if (!tbody) return;
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center subtext">No registered users found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+        const isOnline = u.is_online;
+        const onlinePill = isOnline 
+            ? `<span class="online-pill online"><span class="dot"></span> Active now</span>`
+            : `<span class="online-pill offline" style="opacity: 0.75;"><span class="dot"></span> ${escapeHtml(u.last_seen_text || 'Offline')}</span>`;
+
+        const roleBadge = u.role === 'ADMIN'
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);"><i class="fa-solid fa-crown"></i> Admin</span>`
+            : `<span class="badge" style="background: rgba(37, 99, 235, 0.18); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3);"><i class="fa-solid fa-graduation-cap"></i> Student</span>`;
+
+        const statusBadge = u.is_active
+            ? `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>`
+            : `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Suspended</span>`;
+
+        const filesText = `<strong>${u.files_count || 0} files</strong> <span class="subtext">(${formatBytes(u.storage_used_bytes || 0)})</span>`;
+
+        const isSelf = (currentUser && currentUser.id === u.id);
+
+        return `
+            <tr>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.8rem;">
+                            ${escapeHtml((u.name || 'U').charAt(0).toUpperCase())}
+                        </div>
+                        <div>
+                            <strong style="color: var(--text-heading);">${escapeHtml(u.name)}</strong>
+                            <div class="subtext" style="font-size: 0.75rem;">@${escapeHtml(u.username || 'user')}</div>
+                        </div>
+                    </div>
+                </td>
+                <td><span style="font-size: 0.88rem;">${escapeHtml(u.email)}</span></td>
+                <td>${roleBadge}</td>
+                <td>${filesText}</td>
+                <td>${onlinePill}</td>
+                <td>${statusBadge}</td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(u.created_at).toLocaleDateString()}</td>
+                <td>
+                    <div class="demo-btn-group" style="gap: 0.35rem;">
+                        ${!isSelf ? `
+                            <button class="btn btn-sm ${u.is_active ? 'btn-outline' : 'btn-primary'}" onclick="toggleUserActiveStatus(${u.id}, ${u.is_active})" title="${u.is_active ? 'Suspend Account' : 'Activate Account'}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                                <i class="fa-solid ${u.is_active ? 'fa-user-slash text-danger' : 'fa-user-check text-success'}"></i> ${u.is_active ? 'Suspend' : 'Activate'}
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="toggleUserRole(${u.id}, '${u.role}')" title="Change Role" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                                <i class="fa-solid fa-arrows-rotate"></i> ${u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
+                            </button>
+                        ` : `<span class="badge" style="font-size: 0.7rem;">Your Account</span>`}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterAdminUsersTable(query) {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) {
+        renderAdminUsersTable(adminCachedUsers);
+        return;
+    }
+    const filtered = adminCachedUsers.filter(u => 
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.role || '').toLowerCase().includes(q)
+    );
+    renderAdminUsersTable(filtered);
+}
+
+async function toggleUserActiveStatus(userId, isCurrentlyActive) {
+    const newStatus = !isCurrentlyActive;
+    try {
+        const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ is_active: newStatus })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to update user status');
+
+        showToast(`User status updated to ${newStatus ? 'Active' : 'Suspended'}`, 'success');
+        loadAdminStats();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function toggleUserRole(userId, currentRole) {
+    const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
+    try {
+        const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to update user role');
+
+        showToast(`User role updated to ${newRole}`, 'success');
+        loadAdminStats();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function loadAdminFilesTable() {
+    const tbody = document.getElementById('admin-files-table');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/files`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('Failed to load system files');
+        const files = await res.json();
+        adminCachedFiles = files;
+        renderAdminFilesTable(files);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
+
+function renderAdminFilesTable(files) {
+    const tbody = document.getElementById('admin-files-table');
+    if (!tbody) return;
+
+    if (!files || files.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center subtext">No stored files in platform vaults.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = files.map(f => {
+        const jsEscapedName = escapeHtml(f.filename).replace(/'/g, "\\'");
+        return `
+            <tr>
+                <td><strong><i class="fa-solid fa-file-shield text-primary"></i> ${escapeHtml(f.filename)}</strong></td>
+                <td>
+                    <div style="font-weight: 600; color: var(--text-heading); font-size: 0.88rem;">${escapeHtml(f.owner_name)}</div>
+                    <div class="subtext" style="font-size: 0.75rem;">${escapeHtml(f.owner_email)}</div>
+                </td>
+                <td>${formatBytes(f.file_size)}</td>
+                <td><span class="badge">${escapeHtml(f.folder || '/')}</span></td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(f.created_at).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="previewVaultFile(${f.id}, '${jsEscapedName}')" title="Inspect & View Online">
+                        <i class="fa-solid fa-eye text-primary"></i> View
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterAdminFilesTable(query) {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) {
+        renderAdminFilesTable(adminCachedFiles);
+        return;
+    }
+    const filtered = adminCachedFiles.filter(f => 
+        (f.filename || '').toLowerCase().includes(q) ||
+        (f.owner_name || '').toLowerCase().includes(q) ||
+        (f.owner_email || '').toLowerCase().includes(q) ||
+        (f.folder || '').toLowerCase().includes(q)
+    );
+    renderAdminFilesTable(filtered);
+}
+
+async function loadAdminClientsTable() {
+    const tbody = document.getElementById('admin-clients-table');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/active-clients`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('Failed to load active clients');
+        const clients = await res.json();
+
+        if (!clients || clients.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center subtext">No active client sessions right now.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = clients.map(c => `
+            <tr>
+                <td><strong>${escapeHtml(c.name)}</strong></td>
+                <td>${escapeHtml(c.email)}</td>
+                <td><span class="badge">${escapeHtml(c.role)}</span></td>
+                <td><span class="online-pill ${c.is_online ? 'online' : 'offline'}"><span class="dot"></span> ${escapeHtml(c.last_seen_text)}</span></td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">${c.last_seen_at ? new Date(c.last_seen_at).toLocaleTimeString() : 'N/A'}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${err.message}</td></tr>`;
+    }
+}
+
+async function loadAdminSecurityLogs() {
+    const tbody = document.getElementById('admin-security-table');
+    if (!tbody) return;
+
+    try {
+        const logsRes = await fetch(`${API_BASE}/audit/logs?limit=40`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!logsRes.ok) return;
+        const logs = await logsRes.json();
+        const securityLogs = logs.filter(l => !l.success || l.action.includes('UNAUTHORIZED') || l.action.includes('FAILED') || l.action.includes('DENIED'));
+
         if (securityLogs.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext">No security violations or failed events detected.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center subtext">No security violations or failed events detected. Zero-trust security active.</td></tr>`;
         } else {
             tbody.innerHTML = securityLogs.map(l => `
                 <tr>
-                    <td>${new Date(l.created_at).toLocaleString()}</td>
-                    <td>${l.user_email || l.ip_address || 'Unknown'}</td>
-                    <td><span class="badge badge-danger">${l.action}</span></td>
-                    <td>${l.details || '-'}</td>
+                    <td style="font-size: 0.82rem; color: var(--text-muted);">${new Date(l.created_at).toLocaleString()}</td>
+                    <td><strong style="color: var(--text-heading);">${escapeHtml(l.user_email || l.ip_address || 'Unknown Client')}</strong></td>
+                    <td><span class="badge badge-danger">${escapeHtml(l.action)}</span></td>
+                    <td>${escapeHtml(l.details || '-')}</td>
                 </tr>
             `).join('');
         }
     } catch (err) {
-        showToast(err.message, 'error');
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${err.message}</td></tr>`;
     }
 }
 

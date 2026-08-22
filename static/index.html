@@ -385,53 +385,174 @@
 
                 <!-- Tab Content: Admin Portal -->
                 <div id="content-admin" class="dash-tab-content">
-                    <!-- Metrics Cards -->
-                    <div class="metrics-grid">
+                    <div class="glass-panel" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h2 style="font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text-heading);">
+                                <i class="fa-solid fa-user-shield text-primary"></i> Admin Master Dashboard
+                            </h2>
+                            <p style="color: var(--text-muted, #94a3b8); font-size: 0.88rem; margin-top: 0.25rem;">
+                                Complete system overview: Registered students, encrypted files, real-time client logins, and zero-trust security audits.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.6rem;">
+                            <button class="btn btn-outline btn-sm" onclick="loadAdminStats()" title="Refresh Dashboard">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Cards Grid -->
+                    <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                         <div class="metric-card glass-panel">
                             <div class="icon-box blue"><i class="fa-solid fa-users"></i></div>
                             <div class="metric-info">
                                 <span class="metric-label">Total Registered Users</span>
                                 <h3 id="stat-total-users">0</h3>
+                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;" id="stat-user-breakdown">0 Students • 0 Admins</p>
                             </div>
                         </div>
+
+                        <div class="metric-card glass-panel">
+                            <div class="icon-box green" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;"><i class="fa-solid fa-satellite-dish"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Logged-In Clients</span>
+                                <h3 id="stat-online-users" style="color: #22c55e;">0</h3>
+                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;"><span class="online-pill online" style="padding: 1px 6px; font-size: 0.7rem;"><span class="dot"></span> Online Now</span></p>
+                            </div>
+                        </div>
+
                         <div class="metric-card glass-panel">
                             <div class="icon-box green"><i class="fa-solid fa-file-shield"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Active Encrypted Files</span>
+                                <span class="metric-label">Encrypted Files Stored</span>
                                 <h3 id="stat-total-files">0</h3>
+                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">All user vaults</p>
                             </div>
                         </div>
+
                         <div class="metric-card glass-panel">
                             <div class="icon-box purple"><i class="fa-solid fa-hard-drive"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Storage Used</span>
+                                <span class="metric-label">Vault Storage Used</span>
                                 <h3 id="stat-storage-used">0 MB</h3>
+                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">AES-256 encrypted</p>
                             </div>
                         </div>
+
                         <div class="metric-card glass-panel">
-                            <div class="icon-box red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="icon-box blue" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;"><i class="fa-solid fa-share-nodes"></i></div>
                             <div class="metric-info">
-                                <span class="metric-label">Security Alerts & Failures</span>
-                                <h3 id="stat-security-events">0</h3>
+                                <span class="metric-label">Active Share Links</span>
+                                <h3 id="stat-active-shares">0</h3>
+                                <p class="subtext" style="font-size: 0.75rem; margin-top: 0.2rem;">Protected links</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Admin Monitoring Feed -->
-                    <div class="admin-details-grid">
+                    <!-- Admin Sub-Navigation Tabs -->
+                    <div class="admin-subtabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn active" id="btn-admintab-users" onclick="switchAdminSubTab('users')">
+                            <i class="fa-solid fa-users"></i> Registered Students & Users (<span id="admin-subtab-users-count">0</span>)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-files" onclick="switchAdminSubTab('files')">
+                            <i class="fa-solid fa-folder-open"></i> All System Files (<span id="admin-subtab-files-count">0</span>)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-clients" onclick="switchAdminSubTab('clients')">
+                            <i class="fa-solid fa-circle-dot text-success"></i> Logged-In Clients (<span id="admin-subtab-clients-count">0</span>)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline admin-subtab-btn" id="btn-admintab-security" onclick="switchAdminSubTab('security')">
+                            <i class="fa-solid fa-shield-virus text-danger"></i> Security Alerts (<span id="stat-security-events">0</span>)
+                        </button>
+                    </div>
+
+                    <!-- Panel 1: Registered Students & Users -->
+                    <div id="admin-panel-users" class="admin-panel active">
                         <div class="table-container glass-panel">
-                            <h3><i class="fa-solid fa-shield-virus"></i> Security Events & Failed Attempts</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <h3 style="margin: 0; font-size: 1.1rem;"><i class="fa-solid fa-user-graduate text-primary"></i> Registered Platform Users & Students</h3>
+                                <input type="text" id="admin-user-search" placeholder="Search user by name or email..." oninput="filterAdminUsersTable(this.value)" style="max-width: 280px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: var(--radius-md);">
+                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>User / Student</th>
+                                        <th>Email Address</th>
+                                        <th>Role</th>
+                                        <th>Stored Files</th>
+                                        <th>Online Status</th>
+                                        <th>Account Status</th>
+                                        <th>Registered Date</th>
+                                        <th>Admin Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-users-table">
+                                    <tr><td colspan="8" class="text-center">Loading registered users directory...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: All System Files -->
+                    <div id="admin-panel-files" class="admin-panel" style="display: none;">
+                        <div class="table-container glass-panel">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <h3 style="margin: 0; font-size: 1.1rem;"><i class="fa-solid fa-boxes-stacked text-primary"></i> All Vault Files & Payloads</h3>
+                                <input type="text" id="admin-file-search" placeholder="Search file by name or owner..." oninput="filterAdminFilesTable(this.value)" style="max-width: 280px; padding: 0.4rem 0.75rem; font-size: 0.85rem; border-radius: var(--radius-md);">
+                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>File Name</th>
+                                        <th>Owner / Student</th>
+                                        <th>Size</th>
+                                        <th>Folder</th>
+                                        <th>Uploaded Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-files-table">
+                                    <tr><td colspan="6" class="text-center">Loading system files...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Active Logged-In Clients -->
+                    <div id="admin-panel-clients" class="admin-panel" style="display: none;">
+                        <div class="table-container glass-panel">
+                            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;"><i class="fa-solid fa-satellite-dish text-success"></i> Currently Connected / Logged-In Client Sessions</h3>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Client Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Live Status</th>
+                                        <th>Last Heartbeat</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-clients-table">
+                                    <tr><td colspan="5" class="text-center">Loading active client sessions...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel 4: Security Events -->
+                    <div id="admin-panel-security" class="admin-panel" style="display: none;">
+                        <div class="table-container glass-panel">
+                            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;"><i class="fa-solid fa-shield-virus text-danger"></i> Security Violations, Failed Attempts & Audits</h3>
                             <table class="data-table">
                                 <thead>
                                     <tr>
                                         <th>Time</th>
                                         <th>User / IP</th>
-                                        <th>Event</th>
+                                        <th>Security Event</th>
                                         <th>Details</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-security-table">
-                                    <tr><td colspan="4">Loading security log feed...</td></tr>
+                                    <tr><td colspan="4" class="text-center">Loading security log feed...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -454,6 +575,44 @@
                     <div style="display: flex; align-items: center; gap: 0.6rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.55rem 0.75rem;">
                         <i class="fa-solid fa-file text-primary" style="font-size: 1rem;"></i>
                         <span id="share-file-name" style="font-weight: 600; font-size: 0.88rem; color: var(--text-heading); word-break: break-all;">filename.txt</span>
+                    </div>
+
+                    <!-- Search Bar: Client / Student Name Search -->
+                    <div class="form-group" style="margin-bottom: 0; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label style="font-size: 0.8rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.4rem; color: var(--text-heading);">
+                                <i class="fa-solid fa-magnifying-glass text-primary"></i> Search Client / Student Name
+                            </label>
+                            <span id="share-students-count-badge" class="badge badge-primary" style="font-size: 0.7rem;"><i class="fa-solid fa-graduation-cap"></i> Loading...</span>
+                        </div>
+
+                        <!-- Live Search Input -->
+                        <div class="search-input-wrapper" style="position: relative; display: flex; align-items: center;">
+                            <i class="fa-solid fa-user-magnifying-glass" style="position: absolute; left: 0.75rem; color: var(--text-muted); font-size: 0.85rem; pointer-events: none;"></i>
+                            <input type="text" id="share-client-search-input" placeholder="Type name (e.g. Alice, Bob) or email to search..." oninput="onShareClientSearchInput(this.value)" onfocus="showShareClientDropdown()" autocomplete="off" style="padding-left: 2.2rem; padding-right: 2rem; font-size: 0.85rem; width: 100%; border-radius: 8px;">
+                            <button type="button" id="share-client-clear-btn" onclick="clearShareRecipientSelection()" title="Clear selection" style="position: absolute; right: 0.5rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; display: none; line-height: 1;">&times;</button>
+                        </div>
+
+                        <!-- Suggestions / Search Dropdown -->
+                        <div id="share-client-autocomplete-list" class="share-client-dropdown glass-panel" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100; max-height: 220px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.3); background: var(--bg-secondary);">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+
+                        <!-- Selected Recipient Chip / Notice -->
+                        <div id="share-selected-client-card" style="display: none; margin-top: 0.45rem; padding: 0.5rem 0.75rem; background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 6px; display: none; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
+                                <i class="fa-solid fa-circle-check text-success" style="font-size: 0.9rem; flex-shrink: 0;"></i>
+                                <div style="min-width: 0; font-size: 0.8rem;">
+                                    <span id="share-selected-client-name" style="font-weight: 700; color: var(--text-heading);">Recipient Name</span>
+                                    <span id="share-selected-client-email" class="subtext" style="font-size: 0.72rem; margin-left: 0.3rem;">(email)</span>
+                                </div>
+                            </div>
+                            <button type="button" onclick="clearShareRecipientSelection()" style="background: none; border: none; color: var(--accent-red, #ef4444); font-size: 0.75rem; cursor: pointer; font-weight: 600; padding: 0 0.3rem;" title="Remove recipient">Change</button>
+                        </div>
+
+                        <p id="share-public-mode-notice" class="subtext" style="font-size: 0.72rem; margin-top: 0.25rem; color: var(--text-muted);">
+                            <i class="fa-solid fa-globe"></i> Sharing in <strong>Public Link & Share Code</strong> format (accessible to anyone with link/code).
+                        </p>
                     </div>
 
                     <!-- Options Grid (Permission & Expiration) -->
