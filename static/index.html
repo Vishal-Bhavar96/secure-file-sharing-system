@@ -413,8 +413,8 @@
                             <button type="button" class="btn btn-outline btn-sm" onclick="switchToStudentProfile()" title="Switch to Student Account (User A)" style="border-color: rgba(37, 99, 235, 0.4); color: var(--action-primary); font-weight: 600;">
                                 <i class="fa-solid fa-graduation-cap"></i> Student View
                             </button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="loadAdminStats()" title="Refresh Dashboard">
-                                <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-admin-data" onclick="refreshAdminData(this)" title="Refresh Dashboard">
+                                <i class="fa-solid fa-arrows-rotate"></i> <span>Refresh Data</span>
                             </button>
                         </div>
                     </div>
@@ -1469,6 +1469,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=2.4"></script>
+    <script src="/js/app.js?v=3.0"></script>
 </body>
 </html>

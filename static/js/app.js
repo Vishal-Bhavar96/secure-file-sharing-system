@@ -1780,6 +1780,23 @@ function switchAdminSubTab(tabName) {
     }
 }
 
+async function refreshAdminData(btn) {
+    const buttonEl = btn || document.getElementById('btn-refresh-admin-data');
+    const icon = buttonEl ? buttonEl.querySelector('i') : null;
+    if (icon) icon.classList.add('fa-spin');
+    if (buttonEl) buttonEl.disabled = true;
+
+    try {
+        await loadAdminStats();
+        showToast('Admin dashboard data refreshed successfully!', 'success');
+    } catch (err) {
+        showToast('Failed to refresh data: ' + err.message, 'error');
+    } finally {
+        if (icon) icon.classList.remove('fa-spin');
+        if (buttonEl) buttonEl.disabled = false;
+    }
+}
+
 async function loadAdminStats() {
     try {
         const res = await fetch(`${API_BASE}/admin/stats`, {
@@ -1821,11 +1838,13 @@ async function loadAdminStats() {
         const subClientsCount = document.getElementById('admin-subtab-clients-count');
         if (subClientsCount) subClientsCount.textContent = stats.online_users_count || 0;
 
-        // Load Tab Contents
-        loadAdminUsersTable();
-        loadAdminFilesTable();
-        loadAdminClientsTable();
-        loadAdminAllActivityLogs();
+        // Load Tab Contents concurrently
+        await Promise.all([
+            loadAdminUsersTable(),
+            loadAdminFilesTable(),
+            loadAdminClientsTable(),
+            loadAdminAllActivityLogs()
+        ]);
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -3429,8 +3448,18 @@ async function submitRevokeOtherSessions() {
 }
 
 // Helpers
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
 function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.remove('active');
+    }
 }
 
 function formatBytes(bytes, decimals = 2) {
