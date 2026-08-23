@@ -211,8 +211,8 @@ function renderBreadcrumbs() {
 
     const parts = currentFolder.split('/').filter(p => p.length > 0);
     let html = `
-        <span style="cursor: pointer; color: var(--accent-blue, #38bdf8); font-weight: 500;" onclick="navigateToFolder('/')">
-            <i class="fa-solid fa-house"></i> Home
+        <span class="breadcrumb-item" onclick="navigateToFolder('/')">
+            <i class="fa-solid fa-house" style="color: #2563eb;"></i> Home
         </span>
     `;
 
@@ -222,12 +222,12 @@ function renderBreadcrumbs() {
         const folderName = parts[i];
         const isLast = (i === parts.length - 1);
 
-        html += ` <span style="color: var(--text-muted, #94a3b8); margin: 0 0.25rem;">/</span> `;
+        html += ` <span class="breadcrumb-separator"><i class="fa-solid fa-chevron-right" style="font-size: 0.72rem;"></i></span> `;
         if (isLast) {
-            html += `<span style="font-weight: 600; color: var(--text-main, #f8fafc);"><i class="fa-solid fa-folder-open text-primary"></i> ${escapeHtml(folderName)}</span>`;
+            html += `<span class="breadcrumb-item breadcrumb-active"><i class="fa-solid fa-folder-open" style="color: #2563eb;"></i> ${escapeHtml(folderName)}</span>`;
         } else {
             const pathEscaped = accumulatedPath.replace(/'/g, "\\'");
-            html += `<span style="cursor: pointer; color: var(--accent-blue, #38bdf8);" onclick="navigateToFolder('${pathEscaped}')">${escapeHtml(folderName)}</span>`;
+            html += `<span class="breadcrumb-item" onclick="navigateToFolder('${pathEscaped}')">${escapeHtml(folderName)}</span>`;
         }
     }
 
