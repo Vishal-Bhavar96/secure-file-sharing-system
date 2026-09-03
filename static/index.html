@@ -27,9 +27,6 @@
                 <button type="button" class="btn btn-sm btn-outline" onclick="openEnterCodeModal()" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); font-weight: 600;">
                     <i class="fa-solid fa-key text-primary"></i> <span>Enter Code</span>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline student-only-btn" id="nav-special-admin-btn" onclick="openSpecialAdminModal()" style="display: none; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-md); font-weight: 600; color: #b45309; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08);" title="Special Administrator Elevation & Activity">
-                    <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i> <span>Special Admin Login</span>
-                </button>
                 <div class="account-control-container" id="account-control-container" style="display:none; position: relative;">
                     <div class="account-dropdown-trigger" id="account-dropdown-trigger" onclick="toggleAccountDropdown(event)">
                         <div class="avatar-wrapper">
@@ -76,9 +73,6 @@
                         </button>
                         <button type="button" class="dropdown-item" onclick="openAccountModal('security')">
                             <i class="fa-solid fa-shield-halved"></i> <span>Security & Sessions</span>
-                        </button>
-                        <button type="button" class="dropdown-item student-only-btn" id="dropdown-special-admin-btn" onclick="openSpecialAdminModal()" style="color: #b45309; font-weight: 600; display: none;">
-                            <i class="fa-solid fa-shield-halved" style="color: #f59e0b;"></i> <span>Special Admin Login</span>
                         </button>
                         <button type="button" class="dropdown-item admin-only-btn" id="dropdown-switch-student-btn" onclick="switchToStudentProfile()" style="color: #2563eb; font-weight: 600; display: none;">
                             <i class="fa-solid fa-graduation-cap" style="color: #2563eb;"></i> <span>Switch to Student View</span>
