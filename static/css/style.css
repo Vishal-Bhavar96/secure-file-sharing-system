@@ -2178,17 +2178,6 @@ body.light-theme .account-dropdown-menu {
 /* ==========================================
    Special Admin Elevation & Activity Styles
    ========================================== */
-.student-only-btn {
-    transition: var(--transition-fast);
-}
-
-.student-only-btn:hover {
-    background: rgba(245, 158, 11, 0.16) !important;
-    border-color: #f59e0b !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
-}
-
 .activity-filter-btn {
     font-size: 0.78rem;
     padding: 0.35rem 0.75rem;

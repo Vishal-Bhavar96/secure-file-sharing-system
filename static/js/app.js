@@ -64,7 +64,6 @@ function showAuthView() {
     document.getElementById('view-auth').classList.add('active');
     document.getElementById('view-dashboard').classList.remove('active');
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'inline-flex');
     document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'none');
     updateNavActions();
 }
@@ -75,11 +74,9 @@ function showDashboardView() {
     
     if (currentUser && currentUser.role === 'ADMIN') {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-        document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'flex');
     } else {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.student-only-btn').forEach(el => el.style.display = 'inline-flex');
         document.querySelectorAll('.admin-only-btn').forEach(el => el.style.display = 'none');
     }
 
